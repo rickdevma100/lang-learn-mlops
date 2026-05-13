@@ -1,0 +1,12 @@
+Create a German conversation between two people.
+
+Scenario:
+{scenario}
+
+Requirements:
+- Use A1/A2 German
+- Add English translation
+- Keep dialogue natural
+
+output format: 
+German: [German Dialogue]

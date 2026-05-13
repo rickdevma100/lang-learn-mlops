@@ -1,0 +1,13 @@
+service: "src.service:LangLearnService"
+
+labels:
+  project: lang-learn
+  owner: rickdevmajumder
+
+include:
+  - "src/**/*.py"
+  - "prompts/**/*.txt"
+  - "requirements.txt"
+
+python:
+  requirements_txt: "requirements.txt"
