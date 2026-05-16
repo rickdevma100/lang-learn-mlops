@@ -1,0 +1,39 @@
+# Dockerfile.kserve — Linux/llama.cpp image for KServe deployment
+#
+# Build:
+#   docker build -f Dockerfile.kserve -t lang-learn-kserve ./inference
+#
+# Run (mount a GGUF model):
+#   docker run --rm -p 3000:3000 \
+#     -v $(pwd)/models/gemma-3-4b-it-q4_k_m.gguf:/app/models/gemma.gguf:ro \
+#     -e LANG_LEARN_MODEL_PATH=/app/models/gemma.gguf \
+#     -e BACKEND=llamacpp \
+#     lang-learn-kserve
+
+FROM python:3.12-slim AS base
+
+WORKDIR /app
+
+# System deps for llama-cpp-python compilation
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        libopenblas-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies (Linux / llama.cpp backend)
+COPY requirements-linux.txt requirements.txt ./
+RUN pip install --no-cache-dir -r requirements-linux.txt
+
+# Copy application code
+COPY src/ src/
+COPY prompts/ prompts/
+
+# Default env — can be overridden by KServe InferenceService env vars
+ENV LANG_LEARN_MODEL_PATH=/app/models/gemma.gguf
+ENV BACKEND=llamacpp
+
+EXPOSE 3000
+
+CMD ["bentoml", "serve", "src.service:LangLearnService", "--host", "0.0.0.0", "--port", "3000"]

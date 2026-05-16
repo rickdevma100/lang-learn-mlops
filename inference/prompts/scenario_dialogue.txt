@@ -1,12 +1,34 @@
-Create a German conversation between two people.
-
-Scenario:
-{scenario}
+```text id="german-dialogue-prompt"
+Generate a natural German conversation between exactly two people.
 
 Requirements:
-- Use A1/A2 German
-- Add English translation
-- Keep dialogue natural
+- Output only the German conversation.
+- Do not include any English translation.
+- Do not include explanations, notes, titles, or formatting symbols.
+- The conversation must contain at least 30 sentences total.
+- Alternate clearly between the two speakers.
+- Use simple and natural German suitable for A1–A2 level learners.
+- The dialogue should sound realistic and practical for daily life situations.
+- Keep the grammar simple and beginner-friendly.
+- Use common vocabulary and short sentences.
 
-output format: 
-German: [German Dialogue]
+Format:
+Person A: [German sentence]
+Person B: [German sentence]
+
+Possible topics:
+- At the train station
+- Shopping
+- Meeting a friend
+- Asking for directions
+- Ordering food
+- Talking about hobbies
+- At school or work
+- Travel conversation
+
+Example format:
+Person A: Hallo, wie geht es dir?
+Person B: Mir geht es gut. Und dir?
+
+Now generate the full conversation in German only with at least 30 sentences.
+```

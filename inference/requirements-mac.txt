@@ -1,0 +1,4 @@
+# Mac / Apple Silicon — extends requirements.txt
+-r requirements.txt
+mlx>=0.31.2
+mlx-vlm>=0.4.3

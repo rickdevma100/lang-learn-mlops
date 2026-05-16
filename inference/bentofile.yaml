@@ -8,6 +8,7 @@ include:
   - "src/**/*.py"
   - "prompts/**/*.txt"
   - "requirements.txt"
+  - "requirements-linux.txt"
 
 python:
-  requirements_txt: "requirements.txt"
+  requirements_txt: "requirements-linux.txt"

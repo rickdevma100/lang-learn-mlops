@@ -1,5 +1,4 @@
-mlx-vlm>=0.4.3
-mlx>=0.31.2
+# Common runtime dependencies (backend-agnostic)
 bentoml>=1.3
 pydantic>=2
 pillow>=10
