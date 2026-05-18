@@ -1,0 +1,6 @@
+outs:
+- md5: dcd72198b655d0c2e8cf01fb4ae5ab55.dir
+  size: 5335290140
+  nfiles: 4
+  hash: md5
+  path: gemma-q4
