@@ -1,0 +1,23 @@
+stages:
+  evaluate_prompts:
+    cmd: python -m inference.src.evaluate_prompts
+    deps:
+      - inference/src/evaluate_prompts.py
+      - inference/prompts/image_describe.txt
+      - inference/prompts/scenario_dialogue.txt
+    params:
+      - model
+      - inference
+      - evaluate
+    metrics:
+      - metrics/prompt_quality.json:
+          cache: false
+
+  build_bento:
+    cmd: cd inference && bentoml build 2>&1 | tee ../bentoml_build.log
+    deps:
+      - inference/src/service.py
+      - inference/prompts/
+      - models/gemma-q4/
+    outs:
+      - bentoml_build.log

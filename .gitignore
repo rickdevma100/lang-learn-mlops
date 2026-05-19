@@ -21,7 +21,6 @@ sdist/
 var/
 wheels/
 share/python-wheels/
-models/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -217,3 +216,24 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+models/raw-gemma/.gitattributes
+models/raw-gemma/chat_template.jinja
+models/raw-gemma/config.json
+models/raw-gemma/generation_config.json
+models/raw-gemma/model.safetensors
+models/raw-gemma/processor_config.json
+models/raw-gemma/README.md
+models/raw-gemma/tokenizer_config.json
+models/raw-gemma/tokenizer.json
+models/gemma-mlx/chat_template.jinja
+models/gemma-mlx/config.json
+models/gemma-mlx/generation_config.json
+models/gemma-mlx/model-00001-of-00002.safetensors
+models/gemma-mlx/model-00002-of-00002.safetensors
+models/gemma-mlx/model.safetensors.index.json
+models/gemma-mlx/processor_config.json
+models/gemma-mlx/README.md
+models/gemma-mlx/tokenizer_config.json
+models/gemma-mlx/tokenizer.json
+models/.DS_Store
+dvc.lock

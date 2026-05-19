@@ -1,0 +1,4 @@
+[core]
+    remote = localremote
+['remote "localremote"']
+    url = /Users/rickdevmajumder/Downloads/dvc-models-remote

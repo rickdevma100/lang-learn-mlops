@@ -38,7 +38,9 @@ def _get_engine() -> tuple:
 def _inference_loop(q: queue.Queue) -> None:
     """Runs forever on a daemon thread; owns all MLX GPU streams."""
     # Import mlx_vlm here so the ThreadLocalStream is created on THIS thread.
+    # pyrefly: ignore [missing-import]
     from mlx_vlm import generate as _mlx_generate
+    # pyrefly: ignore [missing-import]
     from mlx_vlm.prompt_utils import apply_chat_template
 
     _get_engine()  # warm up on this thread

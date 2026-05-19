@@ -1,0 +1,18 @@
+{
+  "model_name": "gemma",
+  "model_path": "models/gemma-q4",
+  "prompt_template": "scenario_dialogue",
+  "scenarios_evaluated": 3,
+  "samples_per_scenario": 1,
+  "total_generations": 3,
+  "avg_word_count": 301.0,
+  "avg_sentence_count": 59.7,
+  "avg_dialogue_turns": 29.3,
+  "avg_german_ratio": 0.843,
+  "a1_words": 108.3,
+  "b2_words": 0.0,
+  "a1_ratio": 0.359,
+  "b2_ratio": 0.0,
+  "avg_generation_time_s": 54.92,
+  "total_time_s": 164.75
+}

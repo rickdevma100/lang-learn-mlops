@@ -1,0 +1,17 @@
+model:
+  name: gemma
+  path: models/gemma-q4
+  type: llm
+  backend: llamacpp  # 'mlx' for gemma-mlx, 'llamacpp' for GGUF models
+
+inference:
+  service_url: http://localhost:3001  # running Docker container
+  max_tokens: 1024
+  temperature: 0.9
+
+evaluate:
+  test_scenarios:
+  - ordering food at a restaurant
+  - asking for directions at the train station
+  - shopping for clothes
+  num_samples: 1  # generations per scenario
