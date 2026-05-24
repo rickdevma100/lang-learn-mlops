@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: Job
+
+metadata:
+  name: model-loader
+
+  namespace: {{ .Values.namespace }}
+
+  annotations:
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "5"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+
+spec:
+  backoffLimit: 3
+
+  template:
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+        - name: dvc-pull
+
+          image: python:3.11-slim
+
+          command:
+            - /bin/bash
+            - -c
+            - |
+
+              set -e
+
+              echo "Installing dependencies..."
+              apt-get update
+              apt-get install -y git
+
+              pip install -U dvc[s3]
+
+              echo "Cloning repository..."
+              cd /workspace
+
+              git clone https://github.com/rickdevma100/lang-learn-mlops.git
+
+              cd lang-learn-mlops
+
+              echo "Configure in-cluster MinIO endpoint..."
+
+              dvc remote add -d minio s3://dvc-store
+              dvc remote modify minio endpointurl http://lang-learn-minio:9000
+              dvc remote modify minio access_key_id minioadmin
+              dvc remote modify minio secret_access_key minioadmin
+              dvc remote modify minio use_ssl false
+
+              echo "Pulling model from MinIO..."
+
+              dvc pull models/gemma-q4.dvc
+
+              echo "Copying model to PVC..."
+
+              mkdir -p /models/gemma-q4
+
+              cp -rv models/gemma-q4/* /models/gemma-q4/
+
+              echo "Done."
+
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: minioadmin
+
+            - name: AWS_SECRET_ACCESS_KEY
+              value: minioadmin
+
+          volumeMounts:
+            - name: model-storage
+              mountPath: /models
+
+            - name: workspace
+              mountPath: /workspace
+
+      volumes:
+        - name: model-storage
+          persistentVolumeClaim:
+            claimName: model-storage
+
+        - name: workspace
+          emptyDir: {}

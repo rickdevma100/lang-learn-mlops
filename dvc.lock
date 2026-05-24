@@ -1,0 +1,61 @@
+schema: '2.0'
+stages:
+  evaluate_prompts:
+    cmd: python -m inference.src.evaluate_prompts
+    deps:
+    - path: inference/prompts/image_describe.txt
+      hash: md5
+      md5: 18092ea20c7c22ee9b818b6bdf3185ce
+      size: 125
+    - path: inference/prompts/scenario_dialogue.txt
+      hash: md5
+      md5: 810e99515c945d718a7939d5dd74d1b7
+      size: 678
+    - path: inference/src/evaluate_prompts.py
+      hash: md5
+      md5: 480f783fc71edcd7d2181bdc5d3e89af
+      size: 10135
+    params:
+      params.yaml:
+        evaluate:
+          test_scenarios:
+          - ordering food at a restaurant
+          - asking for directions at the train station
+          - shopping for clothes
+          num_samples: 1
+        inference:
+          service_url: http://localhost:3001
+          max_tokens: 1024
+          temperature: 0.9
+        model:
+          name: gemma
+          path: models/gemma-q4
+          type: llm
+          backend: llamacpp
+    outs:
+    - path: metrics/prompt_quality.json
+      hash: md5
+      md5: 059d4f8680fdf5ee8be5d3f445175dda
+      size: 443
+  build_bento:
+    cmd: cd inference && bentoml build 2>&1 | tee ../bentoml_build.log
+    deps:
+    - path: inference/prompts/
+      hash: md5
+      md5: f82f3f0f75fc99a208e02708d465d874.dir
+      size: 803
+      nfiles: 2
+    - path: inference/src/service.py
+      hash: md5
+      md5: 03efc42a37020850f870a99ba85a458c
+      size: 2122
+    - path: models/gemma-q4/
+      hash: md5
+      md5: dcd72198b655d0c2e8cf01fb4ae5ab55.dir
+      size: 5335290140
+      nfiles: 4
+    outs:
+    - path: bentoml_build.log
+      hash: md5
+      md5: 7ad898b541b76398d865a5e0aace799f
+      size: 821

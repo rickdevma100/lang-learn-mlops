@@ -1,4 +1,10 @@
 [core]
-    remote = localremote
+    remote = minio
 ['remote "localremote"']
     url = /Users/rickdevmajumder/Downloads/dvc-models-remote
+['remote "minio"']
+    url = s3://dvc-store
+    endpointurl = http://localhost:9000
+    access_key_id = minioadmin
+    secret_access_key = minioadmin
+    use_ssl = false
