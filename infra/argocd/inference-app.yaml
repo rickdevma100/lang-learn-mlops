@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: lang-learn-inference
+  namespace: argocd
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/rickdevma100/lang-learn-mlops
+    targetRevision: main
+    path: infra/helm
+
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: lang-learn
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

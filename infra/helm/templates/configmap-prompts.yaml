@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prompts
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "lang-learn.labels" . | nindent 4 }}
+data:
+  image_describe.txt: |
+    {{- .Values.prompts.image_describe | nindent 4 }}
+  scenario_dialogue.txt: |
+    {{- .Values.prompts.scenario_dialogue | nindent 4 }}

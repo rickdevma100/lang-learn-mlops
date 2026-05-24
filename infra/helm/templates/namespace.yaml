@@ -1,0 +1,14 @@
+{{/*
+Namespace is created by helm --create-namespace flag or manually.
+This template is intentionally left empty to avoid ownership conflicts
+with pre-existing namespaces.
+
+To use this template instead, uncomment below:
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.namespace }}
+  labels:
+    {{- include "lang-learn.labels" . | nindent 4 }}
+*/}}

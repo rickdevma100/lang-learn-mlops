@@ -1,0 +1,119 @@
+namespace: lang-learn
+
+# ---------------------------------------------------------------------------
+# MinIO (DVC remote object store)
+# ---------------------------------------------------------------------------
+minio:
+  enabled: true
+
+  rootUser: minioadmin
+  rootPassword: minioadmin
+
+  mode: standalone
+
+  persistence:
+    enabled: true
+    size: 30Gi
+    storageClass: "microk8s-hostpath"
+
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+
+  buckets:
+    - name: dvc-store
+      policy: none
+      purge: false
+
+  service:
+    type: ClusterIP
+    port: 9000
+
+  consoleService:
+    type: ClusterIP
+    port: 9001
+
+  metrics:
+    serviceMonitor:
+      enabled: false
+
+# ---------------------------------------------------------------------------
+# Inference (KServe + BentoML)
+# ---------------------------------------------------------------------------
+inference:
+  image:
+    repository: rickdevma100/lang-learn-kserve
+    tag: latest
+    pullPolicy: Always
+
+  replicas: 1
+
+  minReplicas: 1
+  maxReplicas: 3
+
+  scaleTarget: 1
+
+  model:
+    path: /app/models/gemma-q4/gemma-4-E4B-it-Q4_K_M.gguf
+    dtype: bfloat16
+    quantization: none
+    useFlashAttention: true
+
+  resources:
+    requests:
+      memory: "16Gi"
+      cpu: "4"
+    limits:
+      memory: "24Gi"
+      cpu: "4"
+
+# ---------------------------------------------------------------------------
+# Frontend
+# ---------------------------------------------------------------------------
+frontend:
+  enabled: false
+  image:
+    repository: rickdevma100/lang-learn-frontend
+    tag: latest
+  replicas: 1
+
+# ---------------------------------------------------------------------------
+# Ingress
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  host: langlearn.local
+  inferenceHost: inference.langlearn.local
+
+# ---------------------------------------------------------------------------
+# Prompts (inlined for ConfigMap)
+# ---------------------------------------------------------------------------
+prompts:
+  image_describe: |
+    You are a German language tutor.
+    Describe the image in simple German.
+    Use A1 vocabulary.
+    Explain difficult words in English.
+  scenario_dialogue: |
+    Generate a natural German conversation between exactly two people.
+
+    Requirements:
+    - Output ONLY the German conversation.
+    - Do not include any English translation.
+    - Do not include explanations, notes, titles, or formatting symbols.
+    - The conversation must contain at least 30 sentences total.
+    - Alternate clearly between Person A and Person B.
+    - Use simple and natural German suitable for A1–A2 level learners.
+    - The dialogue should sound realistic and practical for daily life situations.
+    - Keep the grammar simple and beginner-friendly.
+    - Use common vocabulary and short sentences.
+
+    Specific Scenario for this conversation:
+    {scenario}
+
+    Start the conversation now:
+    Person A:

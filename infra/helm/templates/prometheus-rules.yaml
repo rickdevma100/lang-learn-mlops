@@ -1,0 +1,23 @@
+{{/*
+Placeholder for Prometheus alerting rules.
+Uncomment and configure when monitoring is ready.
+
+Example:
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: lang-learn-alerts
+  namespace: {{ .Values.namespace }}
+spec:
+  groups:
+    - name: lang-learn.rules
+      rules:
+        - alert: InferenceHighLatency
+          expr: histogram_quantile(0.99, rate(bentoml_api_server_request_duration_seconds_bucket[5m])) > 10
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Inference latency > 10s (p99)"
+*/}}
