@@ -1,23 +1,97 @@
-{{/*
-Placeholder for Prometheus alerting rules.
-Uncomment and configure when monitoring is ready.
-
-Example:
-
+{{- if .Values.monitoring.enabled }}
 apiVersion: monitoring.coreos.com/v1
 kind: PrometheusRule
 metadata:
   name: lang-learn-alerts
   namespace: {{ .Values.namespace }}
+  labels:
+    release: monitoring   # Must match kube-prometheus-stack release name
+    {{- include "lang-learn.labels" . | nindent 4 }}
 spec:
   groups:
-    - name: lang-learn.rules
+    - name: lang-learn.prompt-quality
       rules:
+
+        # -----------------------------------------------------------------
+        # Alert 1: CEFR score dropped below 0.75 for 15 minutes
+        # -----------------------------------------------------------------
+        - alert: CEFRPromptDegraded
+          expr: avg(lang_learn_cefr_match_score) < 0.75
+          for: 15m
+          labels:
+            severity: warning
+            action: optimize_prompt
+          annotations:
+            summary: "Prompt quality degraded — CEFR match score below threshold"
+            description: "Average CEFR match score is {{ "{{ $value | humanizePercentage }}" }}. Expected > 0.75."
+            runbook: "Optimizer service will auto-select a better prompt via DVC."
+
+        # -----------------------------------------------------------------
+        # Alert 2: Mismatch rate > 20% for 15 minutes
+        # -----------------------------------------------------------------
+        - alert: CEFRMismatchRateHigh
+          expr: |
+            (
+              rate(lang_learn_cefr_mismatches_total[1h])
+              /
+              rate(lang_learn_requests_total[1h])
+            ) > 0.20
+          for: 15m
+          labels:
+            severity: warning
+            action: optimize_prompt
+          annotations:
+            summary: "High CEFR mismatch rate — more than 20% of responses miss the target level"
+            description: "Mismatch rate = {{ "{{ $value | humanizePercentage }}" }}."
+
+        # -----------------------------------------------------------------
+        # Alert 3: More downvotes than upvotes for 30 minutes
+        # -----------------------------------------------------------------
+        - alert: UserFeedbackNegative
+          expr: |
+            sum(rate(lang_learn_user_feedback_total{rating="down"}[1h]))
+            >
+            sum(rate(lang_learn_user_feedback_total{rating="up"}[1h]))
+          for: 30m
+          labels:
+            severity: warning
+            action: optimize_prompt
+          annotations:
+            summary: "User feedback is predominantly negative"
+            description: "More users are rating responses as 'down' than 'up' over the past hour."
+
+    - name: lang-learn.infrastructure
+      rules:
+
+        # -----------------------------------------------------------------
+        # High Latency Alert
+        # -----------------------------------------------------------------
         - alert: InferenceHighLatency
-          expr: histogram_quantile(0.99, rate(bentoml_api_server_request_duration_seconds_bucket[5m])) > 10
+          expr: |
+            histogram_quantile(0.99,
+              rate(lang_learn_latency_seconds_bucket[5m])
+            ) > 30
           for: 5m
           labels:
             severity: warning
           annotations:
-            summary: "Inference latency > 10s (p99)"
-*/}}
+            summary: "p99 inference latency > 30s"
+            description: "p99 latency = {{ "{{ $value }}" }}s."
+
+        # -----------------------------------------------------------------
+        # High Error Rate
+        # -----------------------------------------------------------------
+        - alert: InferenceErrorRateHigh
+          expr: |
+            (
+              rate(lang_learn_requests_total{status="error"}[5m])
+              /
+              rate(lang_learn_requests_total[5m])
+            ) > 0.10
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Inference error rate > 10%"
+            description: "Error rate = {{ "{{ $value | humanizePercentage }}" }}."
+{{- end }}

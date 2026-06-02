@@ -117,3 +117,18 @@ prompts:
 
     Start the conversation now:
     Person A:
+
+# ---------------------------------------------------------------------------
+# Monitoring (Prometheus / Grafana / AlertManager)
+# ---------------------------------------------------------------------------
+monitoring:
+  enabled: true
+
+  adminEmail: "rickdev.ma100@gmail.com"
+
+  # Gmail SMTP — use an App Password (not your normal Gmail password)
+  # Generate at: https://myaccount.google.com/apppasswords
+  smtpSmarthost: "smtp.gmail.com:587"
+  smtpFrom: "rickdev.ma100@gmail.com"
+  smtpUser: "rickdev.ma100@gmail.com"
+  # smtpPassword stored in K8s Secret: alertmanager-smtp-secret  key: smtp-password

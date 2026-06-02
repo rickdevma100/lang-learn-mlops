@@ -1,0 +1,22 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: lang-learn-inference
+  namespace: {{ .Values.namespace }}
+  labels:
+    release: monitoring   # Must match kube-prometheus-stack release name
+    {{- include "lang-learn.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      serving.kserve.io/inferenceservice: lang-learn-inference
+  namespaceSelector:
+    matchNames:
+      - {{ .Values.namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+{{- end }}

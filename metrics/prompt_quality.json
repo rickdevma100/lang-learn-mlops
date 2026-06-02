@@ -5,14 +5,14 @@
   "scenarios_evaluated": 3,
   "samples_per_scenario": 1,
   "total_generations": 3,
-  "avg_word_count": 301.0,
-  "avg_sentence_count": 59.7,
-  "avg_dialogue_turns": 29.3,
-  "avg_german_ratio": 0.843,
-  "a1_words": 108.3,
-  "b2_words": 0.0,
+  "avg_word_count": 278.0,
+  "avg_sentence_count": 54.3,
+  "avg_dialogue_turns": 28.7,
+  "avg_german_ratio": 0.834,
+  "a1_words": 99.3,
+  "b2_words": 0.3,
   "a1_ratio": 0.359,
-  "b2_ratio": 0.0,
-  "avg_generation_time_s": 54.92,
-  "total_time_s": 164.75
+  "b2_ratio": 0.001,
+  "avg_generation_time_s": 30.4,
+  "total_time_s": 91.2
 }

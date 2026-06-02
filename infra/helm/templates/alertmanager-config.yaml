@@ -1,0 +1,74 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: lang-learn-alertmanager-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "lang-learn.labels" . | nindent 4 }}
+spec:
+  route:
+    receiver: default-email
+    groupBy:
+      - alertname
+      - endpoint
+      - language
+      - level
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 1h
+    routes:
+      # Route: action=optimize_prompt → trigger optimizer webhook + send email
+      - matchers:
+          - name: action
+            value: optimize_prompt
+        receiver: prompt-optimizer
+        groupWait: 1m
+        repeatInterval: 6h
+
+      # Route: severity=critical → email only
+      - matchers:
+          - name: severity
+            value: critical
+        receiver: critical-notifications
+
+  receivers:
+    # Default: email admin
+    - name: default-email
+      emailConfigs:
+        - to: {{ .Values.monitoring.adminEmail | quote }}
+          from: {{ .Values.monitoring.smtpFrom | quote }}
+          smarthost: {{ .Values.monitoring.smtpSmarthost | quote }}
+          authUsername: {{ .Values.monitoring.smtpUser | quote }}
+          authPassword:
+            name: alertmanager-smtp-secret
+            key: smtp-password
+          requireTLS: true
+
+    # Optimizer webhook: calls lang-learn-prompt-optimizer /webhook
+    - name: prompt-optimizer
+      webhookConfigs:
+        - url: "http://lang-learn-prompt-optimizer.{{ .Values.namespace }}.svc.cluster.local:8000/webhook"
+          sendResolved: true
+      emailConfigs:
+        - to: {{ .Values.monitoring.adminEmail | quote }}
+          from: {{ .Values.monitoring.smtpFrom | quote }}
+          smarthost: {{ .Values.monitoring.smtpSmarthost | quote }}
+          authUsername: {{ .Values.monitoring.smtpUser | quote }}
+          authPassword:
+            name: alertmanager-smtp-secret
+            key: smtp-password
+          requireTLS: true
+
+    # Critical alerts email
+    - name: critical-notifications
+      emailConfigs:
+        - to: {{ .Values.monitoring.adminEmail | quote }}
+          from: {{ .Values.monitoring.smtpFrom | quote }}
+          smarthost: {{ .Values.monitoring.smtpSmarthost | quote }}
+          authUsername: {{ .Values.monitoring.smtpUser | quote }}
+          authPassword:
+            name: alertmanager-smtp-secret
+            key: smtp-password
+          requireTLS: true
+{{- end }}

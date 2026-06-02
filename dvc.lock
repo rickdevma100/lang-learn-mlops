@@ -35,8 +35,8 @@ stages:
     outs:
     - path: metrics/prompt_quality.json
       hash: md5
-      md5: 059d4f8680fdf5ee8be5d3f445175dda
-      size: 443
+      md5: f8ae8e069c7498af3bfe3e8645a3089b
+      size: 441
   build_bento:
     cmd: cd inference && bentoml build 2>&1 | tee ../bentoml_build.log
     deps:
@@ -57,5 +57,5 @@ stages:
     outs:
     - path: bentoml_build.log
       hash: md5
-      md5: 7ad898b541b76398d865a5e0aace799f
+      md5: 60f17fbae708c6c34e4c6b1e48e9d3dd
       size: 821

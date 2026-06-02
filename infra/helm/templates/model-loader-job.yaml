@@ -36,6 +36,7 @@ spec:
               echo "Cloning repository..."
               cd /workspace
 
+              rm -rf lang-learn-mlops
               git clone https://github.com/rickdevma100/lang-learn-mlops.git
 
               cd lang-learn-mlops
