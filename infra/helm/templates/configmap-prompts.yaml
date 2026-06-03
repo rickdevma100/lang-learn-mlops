@@ -10,3 +10,5 @@ data:
     {{- .Values.prompts.image_describe | nindent 4 }}
   scenario_dialogue.txt: |
     {{- .Values.prompts.scenario_dialogue | nindent 4 }}
+  explain_word.txt: |
+    {{- .Values.prompts.explain_word | nindent 4 }}

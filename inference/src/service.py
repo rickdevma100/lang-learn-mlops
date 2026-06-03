@@ -15,12 +15,14 @@ Metrics endpoint (auto-exposed by BentoML + prometheus_client):
 from __future__ import annotations
 
 import logging
+import re
 import sys
 import time
 import traceback
 from pathlib import Path
 
 import bentoml
+# pyrefly: ignore [missing-import]
 from prometheus_client import make_asgi_app
 
 from .config import MAX_TOKENS, REPO_ROOT, TEMPERATURE
@@ -30,6 +32,31 @@ from .runner import generate, warmup
 
 logger = logging.getLogger("lang_learn.service")
 ERROR_LOG = Path(REPO_ROOT) / "inference" / "last_error.log"
+
+
+def parse_dialogue(text: str) -> list[dict]:
+    normalized = text.strip()
+    if not re.match(r"(?i)^Person\s+[AB]", normalized):
+        normalized = "Person A:\n" + normalized
+        
+    parts = re.split(r"(?i)\n*(Person\s+[AB])\s*:?\s*\n*", normalized)
+    
+    dialogue = []
+    for i in range(1, len(parts), 2):
+        if i + 1 < len(parts):
+            speaker = parts[i].strip()
+            if speaker.lower().endswith("a"):
+                speaker = "Person A"
+            elif speaker.lower().endswith("b"):
+                speaker = "Person B"
+            
+            speech = parts[i+1].strip()
+            if speech:
+                dialogue.append({
+                    "speaker": speaker,
+                    "german": speech
+                })
+    return dialogue
 
 
 def _write_error(prefix: str, exc: BaseException) -> str:
@@ -93,7 +120,16 @@ class LangLearnService:
                 token_count=token_count,
             )
 
-            return {"response": text, "cefr_score": cefr_score, "latency_s": round(latency, 2)}
+            dialogue_turns = parse_dialogue(text)
+
+            return {
+                "title": "Conversation",
+                "level": level,
+                "cefr_score": cefr_score,
+                "latency_s": round(latency, 2),
+                "dialogue": dialogue_turns,
+                "response": text,
+            }
 
         except Exception as e:
             latency = time.time() - t0
@@ -136,3 +172,99 @@ class LangLearnService:
             endpoint=endpoint, language=language, level=level, rating=rating
         ).inc()
         return {"status": "recorded", "rating": rating}
+
+    @bentoml.api
+    def explain_word(
+        self,
+        word: str,
+        max_tokens: int = MAX_TOKENS,
+        temperature: float = TEMPERATURE,
+    ) -> dict:
+        """Explain a German word, providing part of speech, meaning, examples, and synonyms."""
+        t0 = time.time()
+        try:
+            template = load_prompt("explain_word.txt")
+            prompt = template.format(word=word)
+            text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
+
+            latency = time.time() - t0
+            token_count = len(text.split())
+
+            record_inference(
+                endpoint="explain_word",
+                language="German",
+                level="A2",
+                status="success",
+                latency_s=latency,
+                response_text=text,
+                token_count=token_count,
+            )
+
+            cleaned_text = text.strip()
+            # Strip markdown code fences (```json ... ```, ``` ... ```, etc.)
+            cleaned_text = re.sub(
+                r"^```(?:json|JSON)?\s*\n?", "", cleaned_text
+            )
+            cleaned_text = re.sub(r"\n?\s*```\s*$", "", cleaned_text)
+            cleaned_text = cleaned_text.strip()
+
+            import json
+            parsed_data = None
+
+            # Attempt 1: Direct JSON parse
+            try:
+                parsed_data = json.loads(cleaned_text)
+            except json.JSONDecodeError:
+                pass
+
+            # Attempt 2: Extract first JSON object via regex
+            if parsed_data is None:
+                json_match = re.search(
+                    r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", cleaned_text, re.DOTALL
+                )
+                if json_match:
+                    try:
+                        parsed_data = json.loads(json_match.group())
+                    except json.JSONDecodeError:
+                        pass
+
+            # Attempt 3: Fallback with raw text
+            if parsed_data is None:
+                logger.warning(
+                    "explain_word: Could not parse LLM JSON. Raw response: %s",
+                    text[:200],
+                )
+                parsed_data = {
+                    "word": word,
+                    "part_of_speech": "unknown",
+                    "meaning": text.strip(),
+                    "example_sentence_german": "",
+                    "example_sentence_english": "",
+                    "synonyms": []
+                }
+
+            parsed_data["latency_s"] = round(latency, 2)
+            parsed_data["response"] = text
+            return parsed_data
+
+        except Exception as e:
+            latency = time.time() - t0
+            record_inference(
+                endpoint="explain_word",
+                language="German",
+                level="A2",
+                status="error",
+                latency_s=latency,
+                response_text="",
+                token_count=0,
+            )
+            tb = _write_error("explain_word", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
+
+    # ----------------------------------------------------------------------
+    

@@ -118,6 +118,26 @@ prompts:
     Start the conversation now:
     Person A:
 
+  explain_word: |
+    You are a German language expert. Explain the German word "{word}" for a beginner learner.
+
+    Respond with ONLY a JSON object. Do NOT wrap it in code blocks. Do NOT add any text before or after the JSON.
+
+    The JSON must have these fields:
+    - "word": the German word
+    - "part_of_speech": part of speech (include gender for nouns, e.g. "noun (feminine)")
+    - "meaning": English translation and brief explanation
+    - "example_sentence_german": a simple A1-A2 level German sentence using the word
+    - "example_sentence_english": English translation of that sentence
+    - "synonyms": array of objects with "word" (German) and "english" (English) keys, 2-3 items
+
+    Example output format:
+    {{"word": "Hund", "part_of_speech": "noun (masculine)", "meaning": "dog - a common pet animal", "example_sentence_german": "Der Hund spielt im Garten.", "example_sentence_english": "The dog plays in the garden.", "synonyms": [{{"word": "Tier", "english": "animal"}}, {{"word": "Welpe", "english": "puppy"}}]}}
+
+    Now explain the word "{word}":
+
+
+
 # ---------------------------------------------------------------------------
 # Monitoring (Prometheus / Grafana / AlertManager)
 # ---------------------------------------------------------------------------
