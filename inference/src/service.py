@@ -243,6 +243,26 @@ class LangLearnService:
                     "synonyms": []
                 }
 
+            # Normalize keys and ensure defaults
+            if parsed_data is not None:
+                # Map potential misspelled/alternative keys to standard keys
+                mappings = {
+                    "example_sentence_sentence_english": "example_sentence_english",
+                    "example_sentence_english_translation": "example_sentence_english",
+                    "example_english": "example_sentence_english"
+                }
+                for alt_key, std_key in mappings.items():
+                    if alt_key in parsed_data and std_key not in parsed_data:
+                        parsed_data[std_key] = parsed_data.pop(alt_key)
+                
+                # Set default fields if missing
+                parsed_data.setdefault("word", word)
+                parsed_data.setdefault("part_of_speech", "unknown")
+                parsed_data.setdefault("meaning", "")
+                parsed_data.setdefault("example_sentence_german", "")
+                parsed_data.setdefault("example_sentence_english", "")
+                parsed_data.setdefault("synonyms", [])
+
             parsed_data["latency_s"] = round(latency, 2)
             parsed_data["response"] = text
             return parsed_data

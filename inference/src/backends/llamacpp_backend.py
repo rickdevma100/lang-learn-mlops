@@ -41,12 +41,15 @@ def generate(
     max_tokens: int = MAX_TOKENS,
     temperature: float = TEMPERATURE,
 ) -> str:
-    """Generate a completion using llama-cpp-python (CPU/GPU via llama.cpp)."""
+    """Generate a completion using llama-cpp-python (CPU/GPU via llama.cpp).
+
+    Uses chat completion format so instruction-tuned models (Gemma-IT)
+    apply their chat template and produce proper responses.
+    """
     llm = _get_llm()
-    output = llm(
-        prompt,
+    output = llm.create_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
         temperature=temperature,
-        echo=False,
     )
-    return output["choices"][0]["text"]
+    return output["choices"][0]["message"]["content"]
