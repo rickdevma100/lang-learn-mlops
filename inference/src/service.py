@@ -177,8 +177,8 @@ class LangLearnService:
     def explain_word(
         self,
         word: str,
-        max_tokens: int = MAX_TOKENS,
-        temperature: float = TEMPERATURE,
+        max_tokens: int = 256,
+        temperature: float = 0.0,
     ) -> dict:
         """Explain a German word, providing part of speech, meaning, examples, and synonyms."""
         t0 = time.time()

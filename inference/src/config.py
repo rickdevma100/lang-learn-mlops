@@ -59,8 +59,8 @@ def _resolve_backend() -> str:
 
 MODEL_PATH: str = os.getenv("LANG_LEARN_MODEL_PATH", _default_model_path())
 
-MAX_TOKENS: int = int(os.getenv("LANG_LEARN_MAX_TOKENS", "512"))
-TEMPERATURE: float = float(os.getenv("LANG_LEARN_TEMPERATURE", "0.7"))
+MAX_TOKENS: int = int(os.getenv("LANG_LEARN_MAX_TOKENS", "350"))
+TEMPERATURE: float = float(os.getenv("LANG_LEARN_TEMPERATURE", "0.5"))
 
 PROMPTS_DIR: Path = Path(__file__).resolve().parent.parent / "prompts"
 
