@@ -57,21 +57,33 @@ def test_scenario_dialogue_end_to_end() -> None:
 def test_parse_dialogue() -> None:
     from inference.src.service import parse_dialogue
     
-    # Standard format
+    # Standard format without translations
     raw_text_1 = "Guten Tag. Ich brauche Hilfe.\nPerson B:\nWas ist los?\nPerson A:\nIch verstehe nichts."
     dialogue_1 = parse_dialogue(raw_text_1)
     
     assert len(dialogue_1) == 3
-    assert dialogue_1[0] == {"speaker": "Person A", "german": "Guten Tag. Ich brauche Hilfe."}
-    assert dialogue_1[1] == {"speaker": "Person B", "german": "Was ist los?"}
-    assert dialogue_1[2] == {"speaker": "Person A", "german": "Ich verstehe nichts."}
+    assert dialogue_1[0] == {"speaker": "Person A", "german": "Guten Tag. Ich brauche Hilfe.", "english": ""}
+    assert dialogue_1[1] == {"speaker": "Person B", "german": "Was ist los?", "english": ""}
+    assert dialogue_1[2] == {"speaker": "Person A", "german": "Ich verstehe nichts.", "english": ""}
 
     # Format starting with explicit Person A
     raw_text_2 = "Person A:\nHallo!\nPerson B: Hallo, wie geht es dir?\nPerson A:\nMir geht es gut."
     dialogue_2 = parse_dialogue(raw_text_2)
     
     assert len(dialogue_2) == 3
-    assert dialogue_2[0] == {"speaker": "Person A", "german": "Hallo!"}
-    assert dialogue_2[1] == {"speaker": "Person B", "german": "Hallo, wie geht es dir?"}
-    assert dialogue_2[2] == {"speaker": "Person A", "german": "Mir geht es gut."}
+    assert dialogue_2[0] == {"speaker": "Person A", "german": "Hallo!", "english": ""}
+    assert dialogue_2[1] == {"speaker": "Person B", "german": "Hallo, wie geht es dir?", "english": ""}
+    assert dialogue_2[2] == {"speaker": "Person A", "german": "Mir geht es gut.", "english": ""}
+
+    # Format with translations
+    raw_text_3 = (
+        "Person A:\nHallo, wie geht es dir?\nTranslation: Hello, how are you?\n"
+        "Person B:\nMir geht es gut, danke!\nEnglish: I am doing well, thank you!\n"
+        "Person A:\nSchön zu hören.\nEnglisch: Nice to hear."
+    )
+    dialogue_3 = parse_dialogue(raw_text_3)
+    assert len(dialogue_3) == 3
+    assert dialogue_3[0] == {"speaker": "Person A", "german": "Hallo, wie geht es dir?", "english": "Hello, how are you?"}
+    assert dialogue_3[1] == {"speaker": "Person B", "german": "Mir geht es gut, danke!", "english": "I am doing well, thank you!"}
+    assert dialogue_3[2] == {"speaker": "Person A", "german": "Schön zu hören.", "english": "Nice to hear."}
 

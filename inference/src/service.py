@@ -50,11 +50,17 @@ def parse_dialogue(text: str) -> list[dict]:
             elif speaker.lower().endswith("b"):
                 speaker = "Person B"
             
-            speech = parts[i+1].strip()
-            if speech:
+            content = parts[i+1].strip()
+            if content:
+                # Extract German part and English translation
+                subparts = re.split(r"(?i)\n*(?:Translation|English|Englisch)\s*:?\s*\n*", content, maxsplit=1)
+                german_part = subparts[0].strip()
+                english_part = subparts[1].strip() if len(subparts) > 1 else ""
+                
                 dialogue.append({
                     "speaker": speaker,
-                    "german": speech
+                    "german": german_part,
+                    "english": english_part
                 })
     return dialogue
 
