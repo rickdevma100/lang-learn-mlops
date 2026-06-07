@@ -68,3 +68,19 @@ PROMPTS_DIR: Path = Path(__file__).resolve().parent.parent / "prompts"
 #   "mlx"      — Apple Silicon (Mac), uses mlx + mlx-vlm
 #   "llamacpp" — Linux / KServe containers, uses llama-cpp-python (GGUF)
 BACKEND: str = _resolve_backend()
+
+# Redis Configuration
+REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
+
+def _default_embedding_model_path() -> str:
+    local_path = REPO_ROOT / "models" / "multilingual-e5-small"
+    container_path = Path("/app/models/multilingual-e5-small")
+    if container_path.exists():
+        return str(container_path)
+    return str(local_path)
+
+EMBEDDING_MODEL_PATH: str = os.getenv(
+    "LANG_LEARN_EMBEDDING_MODEL_PATH",
+    _default_embedding_model_path()
+)

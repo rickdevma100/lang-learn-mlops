@@ -91,6 +91,38 @@ USER_FEEDBACK = Counter(
 )
 
 # ---------------------------------------------------------------------------
+# Cache metrics
+# ---------------------------------------------------------------------------
+CACHE_REQUESTS = Counter(
+    "lang_learn_cache_requests_total",
+    "Total cache lookups by status (hit or miss)",
+    ["endpoint", "language", "level", "status"],
+)
+
+CACHE_SIMILARITY = Histogram(
+    "lang_learn_cache_similarity",
+    "Cosine similarity of cache lookups",
+    ["endpoint", "language", "level"],
+    buckets=(0.5, 0.6, 0.7, 0.8, 0.85, 0.9, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 1.0),
+)
+
+def record_cache_lookup(
+    endpoint: str,
+    language: str,
+    level: str,
+    status: str,
+    similarity: float = 0.0,
+) -> None:
+    """Record metrics for a cache lookup (hit or miss)."""
+    CACHE_REQUESTS.labels(
+        endpoint=endpoint, language=language, level=level, status=status
+    ).inc()
+    if similarity > 0.0:
+        CACHE_SIMILARITY.labels(
+            endpoint=endpoint, language=language, level=level
+        ).observe(similarity)
+
+# ---------------------------------------------------------------------------
 # Helper: CEFR scoring
 # ---------------------------------------------------------------------------
 _A1_WORDS = frozenset([

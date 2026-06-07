@@ -26,9 +26,10 @@ import bentoml
 from prometheus_client import make_asgi_app
 
 from .config import MAX_TOKENS, REPO_ROOT, TEMPERATURE
-from .metrics import MODEL_LOADED, USER_FEEDBACK, record_inference
+from .metrics import MODEL_LOADED, USER_FEEDBACK, record_inference, record_cache_lookup
 from .prompts import load_prompt
 from .runner import generate, warmup
+from .cache import SemanticCache
 
 logger = logging.getLogger("lang_learn.service")
 ERROR_LOG = Path(REPO_ROOT) / "inference" / "last_error.log"
@@ -93,6 +94,9 @@ class LangLearnService:
             _write_error("warmup", e)
             raise
 
+        # Initialize semantic cache
+        self.cache = SemanticCache()
+
     @bentoml.api
     def scenario_dialogue(
         self,
@@ -109,12 +113,45 @@ class LangLearnService:
         """
         t0 = time.time()
         try:
+            # 1. Semantic Cache Lookup
+            is_hit, cached_response, similarity = self.cache.lookup(scenario, language, level)
+            if is_hit and cached_response:
+                latency = time.time() - t0
+                # Record cache hit metric
+                record_cache_lookup("scenario_dialogue", language, level, "hit", similarity)
+
+                dialogue_turns = parse_dialogue(cached_response)
+                cefr_score = record_inference(
+                    endpoint="scenario_dialogue",
+                    language=language,
+                    level=level,
+                    status="success",
+                    latency_s=latency,
+                    response_text=cached_response,
+                    token_count=0,  # Cache hit results in 0 tokens generated
+                )
+                return {
+                    "title": "Conversation",
+                    "level": level,
+                    "cefr_score": cefr_score,
+                    "latency_s": round(latency, 2),
+                    "dialogue": dialogue_turns,
+                    "response": cached_response,
+                    "result": cached_response,
+                    "cached": True,
+                    "cache_similarity": round(similarity, 3),
+                }
+
+            # Record cache miss metric (with closest similarity score if present)
+            record_cache_lookup("scenario_dialogue", language, level, "miss", similarity)
+
+            # 2. Cache Miss - Generate Dialogue
             template = load_prompt("scenario_dialogue.txt")
             prompt = template.format(scenario=scenario)
             text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
 
             latency = time.time() - t0
-            token_count = len(text.split())  # rough estimate; replace with real count if available
+            token_count = len(text.split())
 
             cefr_score = record_inference(
                 endpoint="scenario_dialogue",
@@ -126,6 +163,9 @@ class LangLearnService:
                 token_count=token_count,
             )
 
+            # 3. Store in Semantic Cache
+            self.cache.store(text, scenario, language, level, cefr_score)
+
             dialogue_turns = parse_dialogue(text)
 
             return {
@@ -135,6 +175,8 @@ class LangLearnService:
                 "latency_s": round(latency, 2),
                 "dialogue": dialogue_turns,
                 "response": text,
+                "result": text,
+                "cached": False,
             }
 
         except Exception as e:

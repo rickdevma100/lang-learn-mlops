@@ -43,21 +43,23 @@ spec:
 
               echo "Configure in-cluster MinIO endpoint..."
 
-              dvc remote add -d minio s3://dvc-store
+              dvc remote add -d -f minio s3://dvc-store
               dvc remote modify minio endpointurl http://lang-learn-minio:9000
               dvc remote modify minio access_key_id "$AWS_ACCESS_KEY_ID"
               dvc remote modify minio secret_access_key "$AWS_SECRET_ACCESS_KEY"
               dvc remote modify minio use_ssl false
 
-              echo "Pulling model from MinIO..."
+              echo "Pulling models from MinIO..."
 
-              dvc pull models/gemma-q4.dvc
+              dvc pull models/gemma-q4.dvc models/multilingual-e5-small.dvc
 
-              echo "Copying model to PVC..."
+              echo "Copying models to PVC..."
 
               mkdir -p /models/gemma-q4
-
               cp -rv models/gemma-q4/* /models/gemma-q4/
+
+              mkdir -p /models/multilingual-e5-small
+              cp -rv models/multilingual-e5-small/* /models/multilingual-e5-small/
 
               echo "Done."
 

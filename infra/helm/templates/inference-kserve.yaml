@@ -29,6 +29,10 @@ spec:
             value: "/app/prompts"
           - name: HF_HUB_OFFLINE
             value: "1"
+          - name: REDIS_HOST
+            value: "redis-stack"
+          - name: REDIS_PORT
+            value: "6379"
         resources:
           requests:
             memory: {{ .Values.inference.resources.requests.memory | quote }}
