@@ -109,20 +109,40 @@ class SemanticCache:
             ]
 
             res = self.redis_client.execute_command(*cmd)
-            if not res or len(res) <= 1:
-                return False, None, 0.0
+            if isinstance(res, dict):
+                total_hits = res.get(b"total_results", 0)
+                if total_hits == 0:
+                    return False, None, 0.0
 
-            total_hits = res[0]
-            if total_hits == 0:
-                return False, None, 0.0
+                results_list = res.get(b"results", [])
+                if not results_list:
+                    return False, None, 0.0
 
-            # Document ID and Fields
-            doc_id = res[1].decode("utf-8")
-            fields_list = res[2]
+                first_result = results_list[0]
+                doc_id_bytes = first_result.get(b"id", b"")
+                doc_id = doc_id_bytes.decode("utf-8") if isinstance(doc_id_bytes, bytes) else str(doc_id_bytes)
 
-            fields = {}
-            for i in range(0, len(fields_list), 2):
-                fields[fields_list[i].decode("utf-8")] = fields_list[i+1]
+                extra_attrs = first_result.get(b"extra_attributes", {})
+                fields = {}
+                for k, v in extra_attrs.items():
+                    key_str = k.decode("utf-8") if isinstance(k, bytes) else str(k)
+                    fields[key_str] = v
+            else:
+                if not res or len(res) <= 1:
+                    return False, None, 0.0
+
+                total_hits = res[0]
+                if total_hits == 0:
+                    return False, None, 0.0
+
+                # Document ID and Fields
+                doc_id = res[1].decode("utf-8") if isinstance(res[1], bytes) else str(res[1])
+                fields_list = res[2]
+
+                fields = {}
+                for i in range(0, len(fields_list), 2):
+                    key_str = fields_list[i].decode("utf-8") if isinstance(fields_list[i], bytes) else str(fields_list[i])
+                    fields[key_str] = fields_list[i+1]
 
             # Parse score and calculate similarity
             vector_score = float(fields.get("vector_score", b"1.0").decode("utf-8"))
@@ -169,7 +189,8 @@ class SemanticCache:
                 "cefr_score": str(cefr_score),
                 "hit_count": "0"
             })
-            logger.info("Cached response stored successfully under key: %s", key)
+            self.redis_client.expire(key, 21600)
+            logger.info("Cached response stored successfully under key: %s with 6-hour TTL", key)
             return True
         except Exception as e:
             logger.error("Error storing response in cache: %s", e)

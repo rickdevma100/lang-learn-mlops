@@ -144,3 +144,8 @@ def test_cache_store(mock_transformer, mock_redis_class) -> None:
     assert mapping["scenario"] == "coffee"
     assert mapping["response"] == "Guten Tag"
     assert mapping["cefr_score"] == "0.85"
+    
+    # Assert TTL was set to 6 hours (21600 seconds)
+    mock_redis.expire.assert_called_once()
+    expire_args = mock_redis.expire.call_args[0]
+    assert expire_args[1] == 21600

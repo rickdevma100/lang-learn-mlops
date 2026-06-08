@@ -104,7 +104,7 @@ prompts:
     Requirements:
     - Alternate clearly between Person A and Person B.
     - For each turn, write the German sentence first, followed immediately by its English translation on the next line starting with "Translation: ".
-    - The conversation must contain at least 20 sentences total.
+    - The conversation must contain at least 30 sentences total.
     - Use simple and natural German suitable for A1–A2 level learners.
     - The dialogue should sound realistic and practical for daily life situations.
     - Keep the grammar simple and beginner-friendly.
