@@ -198,6 +198,16 @@ class LangLearnService:
             }
 
     @bentoml.api
+    def clear_cache(self) -> dict:
+        """Clear all semantic cache entries from Redis."""
+        try:
+            success = self.cache.clear()
+            return {"status": "success", "cleared": success}
+        except Exception as e:
+            logger.error("Error clearing cache: %s", e)
+            return {"status": "error", "message": str(e)}
+
+    @bentoml.api
     def feedback(
         self,
         endpoint: str,

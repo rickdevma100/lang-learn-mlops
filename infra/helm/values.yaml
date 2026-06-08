@@ -50,6 +50,8 @@ inference:
     tag: latest
     pullPolicy: Always
 
+  maxTokens: 1024
+
   replicas: 1
 
   minReplicas: 1
@@ -104,7 +106,8 @@ prompts:
     Requirements:
     - Alternate clearly between Person A and Person B.
     - For each turn, write the German sentence first, followed immediately by its English translation on the next line starting with "Translation: ".
-    - The conversation must contain at least 30 sentences total.
+    - The conversation must contain at least 30 conversational turns in total (15 turns for Person A and 15 turns for Person B).
+    - Ensure the dialogue is long and detailed, meeting the 30-turn requirement before stopping.
     - Use simple and natural German suitable for A1–A2 level learners.
     - The dialogue should sound realistic and practical for daily life situations.
     - Keep the grammar simple and beginner-friendly.

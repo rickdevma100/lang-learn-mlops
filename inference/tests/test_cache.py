@@ -149,3 +149,21 @@ def test_cache_store(mock_transformer, mock_redis_class) -> None:
     mock_redis.expire.assert_called_once()
     expire_args = mock_redis.expire.call_args[0]
     assert expire_args[1] == 21600
+
+
+@patch("redis.Redis")
+@patch("sentence_transformers.SentenceTransformer")
+def test_cache_clear(mock_transformer, mock_redis_class) -> None:
+    mock_redis = MagicMock()
+    mock_redis_class.return_value = mock_redis
+    mock_redis.execute_command.side_effect = [None]  # FT.INFO
+
+    # Mock scan_iter to return some keys
+    mock_redis.scan_iter.return_value = [b"dialog:key1", b"dialog:key2"]
+
+    cache = SemanticCache()
+    success = cache.clear()
+
+    assert success is True
+    mock_redis.scan_iter.assert_called_once_with("dialog:*")
+    mock_redis.delete.assert_called_once_with(b"dialog:key1", b"dialog:key2")

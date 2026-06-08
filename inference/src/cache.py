@@ -195,3 +195,21 @@ class SemanticCache:
         except Exception as e:
             logger.error("Error storing response in cache: %s", e)
             return False
+
+    def clear(self) -> bool:
+        """Clear all dialogue entries under the prefix 'dialog:'."""
+        if not self.enabled or self.redis_client is None:
+            return False
+        try:
+            # Find and delete all matching keys
+            keys = list(self.redis_client.scan_iter("dialog:*"))
+            if keys:
+                self.redis_client.delete(*keys)
+                logger.info("Cleared %d keys from semantic cache.", len(keys))
+            else:
+                logger.info("No cache keys found to clear.")
+            return True
+        except Exception as e:
+            logger.error("Error clearing semantic cache: %s", e)
+            return False
+

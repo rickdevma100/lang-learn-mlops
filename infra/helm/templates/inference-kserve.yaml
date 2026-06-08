@@ -23,6 +23,8 @@ spec:
         env:
           - name: LANG_LEARN_MODEL_PATH
             value: {{ .Values.inference.model.path | quote }}
+          - name: LANG_LEARN_MAX_TOKENS
+            value: {{ .Values.inference.maxTokens | default 1024 | quote }}
           - name: BACKEND
             value: "llamacpp"
           - name: PROMPTS_DIR
