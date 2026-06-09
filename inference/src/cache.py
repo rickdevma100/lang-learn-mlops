@@ -189,8 +189,7 @@ class SemanticCache:
                 "cefr_score": str(cefr_score),
                 "hit_count": "0"
             })
-            self.redis_client.expire(key, 21600)
-            logger.info("Cached response stored successfully under key: %s with 6-hour TTL", key)
+            logger.info("Cached response stored successfully under key: %s", key)
             return True
         except Exception as e:
             logger.error("Error storing response in cache: %s", e)
