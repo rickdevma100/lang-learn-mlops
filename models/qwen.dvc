@@ -1,0 +1,6 @@
+outs:
+- md5: 06eba5f71618472facf9f3d49351da62.dir
+  size: 5444831360
+  nfiles: 2
+  hash: md5
+  path: qwen
