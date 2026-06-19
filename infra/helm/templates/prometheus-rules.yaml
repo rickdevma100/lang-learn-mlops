@@ -16,7 +16,7 @@ spec:
         # Alert 1: CEFR score dropped below 0.75 for 15 minutes
         # -----------------------------------------------------------------
         - alert: CEFRPromptDegraded
-          expr: avg(lang_learn_cefr_match_score) < 0.75
+          expr: avg by (namespace) (lang_learn_cefr_match_score) < 0.75
           for: 15m
           labels:
             severity: warning
@@ -32,9 +32,9 @@ spec:
         - alert: CEFRMismatchRateHigh
           expr: |
             (
-              rate(lang_learn_cefr_mismatches_total[1h])
+              sum by (namespace) (rate(lang_learn_cefr_mismatches_total[1h]))
               /
-              rate(lang_learn_requests_total[1h])
+              sum by (namespace) (rate(lang_learn_requests_total[1h]))
             ) > 0.20
           for: 15m
           labels:
@@ -49,9 +49,9 @@ spec:
         # -----------------------------------------------------------------
         - alert: UserFeedbackNegative
           expr: |
-            sum(rate(lang_learn_user_feedback_total{rating="down"}[1h]))
+            sum by (namespace) (rate(lang_learn_user_feedback_total{rating="down"}[1h]))
             >
-            sum(rate(lang_learn_user_feedback_total{rating="up"}[1h]))
+            sum by (namespace) (rate(lang_learn_user_feedback_total{rating="up"}[1h]))
           for: 30m
           labels:
             severity: warning
@@ -69,7 +69,7 @@ spec:
         - alert: InferenceHighLatency
           expr: |
             histogram_quantile(0.99,
-              rate(lang_learn_latency_seconds_bucket[5m])
+              sum by (le, namespace) (rate(lang_learn_latency_seconds_bucket[5m]))
             ) > 30
           for: 5m
           labels:
@@ -84,9 +84,9 @@ spec:
         - alert: InferenceErrorRateHigh
           expr: |
             (
-              rate(lang_learn_requests_total{status="error"}[5m])
+              sum by (namespace) (rate(lang_learn_requests_total{status="error"}[5m]))
               /
-              rate(lang_learn_requests_total[5m])
+              sum by (namespace) (rate(lang_learn_requests_total[5m]))
             ) > 0.10
           for: 5m
           labels:

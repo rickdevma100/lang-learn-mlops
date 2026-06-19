@@ -58,7 +58,7 @@ inference:
   scaleTarget: 1
 
   model:
-    path: /app/models/gemma-q4/gemma-4-E4B-it-Q4_K_M.gguf
+    path: /app/models/gemma-q4/google_gemma-4-E2B-it-Q4_K_M.gguf
     dtype: bfloat16
     quantization: none
     useFlashAttention: true

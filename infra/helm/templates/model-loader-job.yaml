@@ -18,6 +18,11 @@ spec:
     spec:
       restartPolicy: OnFailure
 
+      tolerations:
+        - key: "node.kubernetes.io/disk-pressure"
+          operator: "Exists"
+          effect: "NoSchedule"
+
       containers:
         - name: dvc-pull
           image: python:3.11-slim
@@ -27,39 +32,73 @@ spec:
             - |
               set -e
 
-              echo "Installing dependencies..."
+              echo "Setting up workspace on PVC..."
+              cd /models
+              mkdir -p workspace
+              cd workspace
+
+              # Use PVC for temp files to bypass node fs write constraints
+              mkdir -p tmp
+              export TMPDIR=$(pwd)/tmp
+              export TEMP=$(pwd)/tmp
+              export TMP=$(pwd)/tmp
+
+              echo "Installing system dependencies..."
               apt-get update
               apt-get install -y git
 
-              pip install -U dvc[s3]
+              echo "Setting up Python virtual environment on PVC..."
+              python -m venv venv
+              source venv/bin/activate
+
+              echo "Installing DVC inside virtual environment on PVC..."
+              pip install --cache-dir $(pwd)/pip_cache -U dvc[s3] huggingface_hub
 
               echo "Cloning repository..."
-              cd /workspace
-
               rm -rf lang-learn-mlops
               git clone https://github.com/rickdevma100/lang-learn-mlops.git
 
               cd lang-learn-mlops
 
               echo "Configure in-cluster MinIO endpoint..."
-
               dvc remote add -d -f minio s3://dvc-store
               dvc remote modify minio endpointurl http://lang-learn-minio:9000
               dvc remote modify minio access_key_id "$AWS_ACCESS_KEY_ID"
               dvc remote modify minio secret_access_key "$AWS_SECRET_ACCESS_KEY"
               dvc remote modify minio use_ssl false
 
-              echo "Pulling models from MinIO..."
+              echo "Pulling and copying models conditionally..."
 
-              dvc pull models/gemma-q4.dvc models/multilingual-e5-small.dvc
+              if [ ! -f "/models/multilingual-e5-small/pytorch_model.bin" ]; then
+                echo "Pulling multilingual-e5-small..."
+                dvc pull models/multilingual-e5-small.dvc
+                mkdir -p /models/multilingual-e5-small
+                cp -rv models/multilingual-e5-small/* /models/multilingual-e5-small/
+                rm -rf .dvc/cache/*
+              else
+                echo "multilingual-e5-small already exists on PVC, skipping."
+              fi
 
-              echo "Copying models to PVC..."
+              if [ ! -f "/models/gemma-q4/gemma-4-E4B-it-Q4_K_M.gguf" ]; then
+                echo "Pulling gemma-q4..."
+                dvc pull models/gemma-q4.dvc
+                mkdir -p /models/gemma-q4
+                cp -rv models/gemma-q4/* /models/gemma-q4/
+                rm -rf .dvc/cache/*
+              else
+                echo "gemma-q4 already exists on PVC, skipping."
+              fi
 
-              mkdir -p /models/gemma-q4
-              cp -rv models/gemma-q4/* /models/gemma-q4/
+              if [ ! -f "/models/gemma-q4/google_gemma-4-E2B-it-Q4_K_M.gguf" ]; then
+                echo "Pulling google_gemma-4-E2B-it-Q4_K_M.gguf from Hugging Face..."
+                python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download(repo_id='bartowski/google_gemma-4-E2B-it-GGUF', filename='google_gemma-4-E2B-it-Q4_K_M.gguf', local_dir='/models/gemma-q4', local_dir_use_symlinks=False)"
+              else
+                echo "google_gemma-4-E2B-it-Q4_K_M.gguf already exists on PVC, skipping."
+              fi
 
-              mkdir -p /models/multilingual-e5-small
-              cp -rv models/multilingual-e5-small/* /models/multilingual-e5-small/
+              echo "Cleaning up workspace..."
+              cd /models
+              rm -rf workspace
 
               echo "Done."
 
@@ -78,12 +117,8 @@ spec:
           volumeMounts:
             - name: model-storage
               mountPath: /models
-            - name: workspace
-              mountPath: /workspace
 
       volumes:
         - name: model-storage
           persistentVolumeClaim:
             claimName: model-storage
-        - name: workspace
-          emptyDir: {}
