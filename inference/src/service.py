@@ -343,6 +343,44 @@ class LangLearnService:
                 "traceback": tb,
             }
 
+    @bentoml.api
+    def rewrite_prompt(
+        self,
+        base_prompt: str,
+        suffix: str,
+        max_tokens: int = 1024,
+        temperature: float = 0.3,
+    ) -> dict:
+        """Rewrite the base prompt to incorporate the winner suffix rules using the LLM."""
+        meta_prompt = (
+            "You are a prompt engineering expert. Your task is to rewrite a base prompt to seamlessly "
+            "incorporate additional instructions or rules.\n\n"
+            "Original Base Prompt:\n"
+            "\"\"\"\n"
+            f"{base_prompt}\n"
+            "\"\"\"\n\n"
+            "Instructions/Rules to incorporate:\n"
+            "\"\"\"\n"
+            f"{suffix}\n"
+            "\"\"\"\n\n"
+            "Generate the final prompt. Do not include any explanation or markdown block quotes (such as ```). "
+            "Output only the final rewritten prompt text."
+        )
+        t0 = time.time()
+        try:
+            text = generate(meta_prompt, max_tokens=max_tokens, temperature=temperature)
+            cleaned = text.strip()
+            # Clean markdown code blocks if the LLM outputted them anyway
+            cleaned = re.sub(r"^```[a-zA-Z]*\n?", "", cleaned)
+            cleaned = re.sub(r"\n?```$", "", cleaned)
+            cleaned = cleaned.strip()
+            
+            logger.info("Successfully rewrote prompt via LLM in %.2fs", time.time() - t0)
+            return {"prompt": cleaned}
+        except Exception as e:
+            logger.error("Failed to rewrite prompt: %s", e)
+            return {"error": str(e)}
 
     # ----------------------------------------------------------------------
+
     

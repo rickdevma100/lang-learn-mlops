@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+# pyrefly: ignore [missing-import]
 import pytest
 
 from inference.src.config import MODEL_PATH, PROMPTS_DIR
@@ -86,4 +87,25 @@ def test_parse_dialogue() -> None:
     assert dialogue_3[0] == {"speaker": "Person A", "german": "Hallo, wie geht es dir?", "english": "Hello, how are you?"}
     assert dialogue_3[1] == {"speaker": "Person B", "german": "Mir geht es gut, danke!", "english": "I am doing well, thank you!"}
     assert dialogue_3[2] == {"speaker": "Person A", "german": "Schön zu hören.", "english": "Nice to hear."}
+
+
+@pytest.mark.slow
+def test_rewrite_prompt_end_to_end() -> None:
+    """Loads the real model and runs prompt rewriting. Requires gemma-mlx."""
+    if not Path(MODEL_PATH).is_dir():
+        pytest.skip(f"Model not present at {MODEL_PATH}")
+
+    from inference.src.service import LangLearnService
+
+    service = LangLearnService()
+    result = service.rewrite_prompt(
+        base_prompt="Generate a natural German conversation.",
+        suffix="Rule: Keep sentences short.",
+        max_tokens=64,
+    )
+    assert isinstance(result, dict)
+    assert "prompt" in result
+    assert isinstance(result["prompt"], str)
+    assert len(result["prompt"].strip()) > 0
+
 
