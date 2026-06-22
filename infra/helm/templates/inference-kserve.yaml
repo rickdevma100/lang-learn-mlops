@@ -47,18 +47,25 @@ spec:
           - name: prompts
             mountPath: /app/prompts
             readOnly: true
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          failureThreshold: 30
         readinessProbe:
           httpGet:
             path: /healthz
             port: 3000
-          initialDelaySeconds: 180
+          initialDelaySeconds: 5
           periodSeconds: 10
-          failureThreshold: 10
+          failureThreshold: 3
         livenessProbe:
           httpGet:
             path: /healthz
             port: 3000
-          initialDelaySeconds: 240
+          initialDelaySeconds: 10
           periodSeconds: 30
           failureThreshold: 5
     volumes:
