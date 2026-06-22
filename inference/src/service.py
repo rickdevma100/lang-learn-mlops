@@ -105,47 +105,53 @@ class LangLearnService:
         temperature: float = TEMPERATURE,
         language: str = "German",
         level: str = "A2",
+        bypass_cache: bool = False,
     ) -> dict:
         """Generate an A1/A2 German dialogue for the given scenario.
 
         Extra parameters `language` and `level` are used for metric labels
         and CEFR scoring. They default to German/A2.
+
+        Set `bypass_cache=True` to skip the semantic cache (used by the
+        prompt optimizer during benchmarking so each candidate gets a
+        fresh LLM-generated response).
         """
         t0 = time.time()
         try:
-            # 1. Semantic Cache Lookup
-            is_hit, cached_response, similarity = self.cache.lookup(scenario, language, level)
-            if is_hit and cached_response:
-                latency = time.time() - t0
-                # Record cache hit metric
-                record_cache_lookup("scenario_dialogue", language, level, "hit", similarity)
+            # 1. Semantic Cache Lookup (skipped when bypass_cache is True)
+            if not bypass_cache:
+                is_hit, cached_response, similarity = self.cache.lookup(scenario, language, level)
+                if is_hit and cached_response:
+                    latency = time.time() - t0
+                    # Record cache hit metric
+                    record_cache_lookup("scenario_dialogue", language, level, "hit", similarity)
 
-                dialogue_turns = parse_dialogue(cached_response)
-                cefr_score = record_inference(
-                    endpoint="scenario_dialogue",
-                    language=language,
-                    level=level,
-                    status="success",
-                    latency_s=latency,
-                    response_text=cached_response,
-                    token_count=0,  # Cache hit results in 0 tokens generated
-                )
-                return {
-                    "title": "Conversation",
-                    "level": level,
-                    "cefr_score": cefr_score,
-                    "latency_s": round(latency, 2),
-                    "dialogue": dialogue_turns,
-                    "response": cached_response,
-                    "result": cached_response,
-                    "cached": True,
-                    "cache_similarity": round(similarity, 3),
-                }
+                    dialogue_turns = parse_dialogue(cached_response)
+                    cefr_score = record_inference(
+                        endpoint="scenario_dialogue",
+                        language=language,
+                        level=level,
+                        status="success",
+                        latency_s=latency,
+                        response_text=cached_response,
+                        token_count=0,  # Cache hit results in 0 tokens generated
+                    )
+                    return {
+                        "title": "Conversation",
+                        "level": level,
+                        "cefr_score": cefr_score,
+                        "latency_s": round(latency, 2),
+                        "dialogue": dialogue_turns,
+                        "response": cached_response,
+                        "result": cached_response,
+                        "cached": True,
+                        "cache_similarity": round(similarity, 3),
+                    }
 
-            # Record cache miss metric (with closest similarity score if present)
-            record_cache_lookup("scenario_dialogue", language, level, "miss", similarity)
+                # Record cache miss metric (with closest similarity score if present)
+                record_cache_lookup("scenario_dialogue", language, level, "miss", similarity)
 
-            # 2. Cache Miss - Generate Dialogue
+            # 2. Generate Dialogue (cache miss or bypass)
             template = load_prompt("scenario_dialogue.txt")
             prompt = template.format(scenario=scenario)
             text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
@@ -163,8 +169,10 @@ class LangLearnService:
                 token_count=token_count,
             )
 
-            # 3. Store in Semantic Cache
-            self.cache.store(text, scenario, language, level, cefr_score)
+            # 3. Store in Semantic Cache (skipped when bypass_cache is True
+            #    to avoid polluting the cache with benchmark variations)
+            if not bypass_cache:
+                self.cache.store(text, scenario, language, level, cefr_score)
 
             dialogue_turns = parse_dialogue(text)
 
@@ -381,6 +389,24 @@ class LangLearnService:
             logger.error("Failed to rewrite prompt: %s", e)
             return {"error": str(e)}
 
+    @bentoml.api
+    def reload_prompts(self) -> dict:
+        """Clear the prompt LRU cache so prompts are re-read from disk.
+
+        Called by the prompt optimizer after updating the ConfigMap.
+        ConfigMap changes propagate to the mounted volume within ~60s,
+        so the optimizer waits before calling this endpoint.
+        """
+        try:
+            load_prompt.cache_clear()
+            logger.info("Prompt LRU cache cleared — prompts will be re-read from disk.")
+            return {
+                "status": "reloaded",
+                "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            }
+        except Exception as e:
+            logger.error("Failed to clear prompt cache: %s", e)
+            return {"error": str(e)}
+
     # ----------------------------------------------------------------------
 
-    
