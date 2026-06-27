@@ -106,6 +106,7 @@ class LangLearnService:
         language: str = "German",
         level: str = "A2",
         bypass_cache: bool = False,
+        prompt_template: str = "",
     ) -> dict:
         """Generate an A1/A2 German dialogue for the given scenario.
 
@@ -115,6 +116,11 @@ class LangLearnService:
         Set `bypass_cache=True` to skip the semantic cache (used by the
         prompt optimizer during benchmarking so each candidate gets a
         fresh LLM-generated response).
+
+        Set `prompt_template` to override the default prompt loaded from
+        disk. The template must contain a `{scenario}` placeholder.
+        Used by the prompt optimizer to benchmark candidate prompt
+        variations without modifying the ConfigMap.
         """
         t0 = time.time()
         try:
@@ -152,7 +158,10 @@ class LangLearnService:
                 record_cache_lookup("scenario_dialogue", language, level, "miss", similarity)
 
             # 2. Generate Dialogue (cache miss or bypass)
-            template = load_prompt("scenario_dialogue.txt")
+            if prompt_template:
+                template = prompt_template
+            else:
+                template = load_prompt("scenario_dialogue.txt")
             prompt = template.format(scenario=scenario)
             text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
 
