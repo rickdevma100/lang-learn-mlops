@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import logging
 import uuid
+# pyrefly: ignore [missing-import]
 import numpy as np
+# pyrefly: ignore [missing-import]
 import redis
 
 from .config import EMBEDDING_MODEL_PATH, REDIS_HOST, REDIS_PORT
@@ -23,6 +25,7 @@ class SemanticCache:
         try:
             logger.info("Initializing SentenceTransformer embedding model from %s...", EMBEDDING_MODEL_PATH)
             # Offline loading (HF_HUB_OFFLINE=1 should be set in env)
+            # pyrefly: ignore [missing-import]
             from sentence_transformers import SentenceTransformer
             self.model = SentenceTransformer(EMBEDDING_MODEL_PATH)
             logger.info("Embedding model loaded successfully.")
