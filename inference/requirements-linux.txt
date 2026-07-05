@@ -3,3 +3,4 @@
 llama-cpp-python>=0.3.4
 redis>=5.0.0
 sentence-transformers>=3.0.0
+edge-tts>=6.1.9

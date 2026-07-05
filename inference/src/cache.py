@@ -215,3 +215,42 @@ class SemanticCache:
             logger.error("Error clearing semantic cache: %s", e)
             return False
 
+    # ------------------------------------------------------------------
+    # Audio cache (TTS)
+    # ------------------------------------------------------------------
+
+    def get_audio(self, text: str, language: str, level: str, speaker: str) -> bytes | None:
+        """Retrieve cached MP3 audio from Redis. Returns None on miss or error."""
+        if not self.enabled or self.redis_client is None:
+            return None
+        import hashlib
+        key_input = f"{text}|{language}|{level}|{speaker}".encode()
+        audio_key = f"audio:{hashlib.md5(key_input).hexdigest()}"
+        try:
+            cached = self.redis_client.get(audio_key)
+            return cached  # bytes or None
+        except Exception as e:
+            logger.warning("Audio cache get failed: %s", e)
+            return None
+
+    def set_audio(
+        self,
+        text: str,
+        language: str,
+        level: str,
+        speaker: str,
+        audio: bytes,
+        ttl: int = 2_592_000,  # 30 days
+    ) -> None:
+        """Store MP3 audio in Redis with a TTL (default 30 days)."""
+        if not self.enabled or self.redis_client is None:
+            return
+        import hashlib
+        key_input = f"{text}|{language}|{level}|{speaker}".encode()
+        audio_key = f"audio:{hashlib.md5(key_input).hexdigest()}"
+        try:
+            self.redis_client.setex(audio_key, ttl, audio)
+            logger.debug("Audio cached: key=%s size=%d bytes", audio_key, len(audio))
+        except Exception as e:
+            logger.warning("Audio cache set failed: %s", e)
+

@@ -20,8 +20,11 @@ import sys
 import time
 import traceback
 from pathlib import Path
+from typing import Annotated
 
 import bentoml
+# pyrefly: ignore [missing-import]
+from bentoml.validators import ContentType
 # pyrefly: ignore [missing-import]
 from prometheus_client import make_asgi_app
 
@@ -30,6 +33,7 @@ from .metrics import MODEL_LOADED, USER_FEEDBACK, record_inference, record_cache
 from .prompts import load_prompt
 from .runner import generate, warmup
 from .cache import SemanticCache
+from .tts import synthesize_line_sync
 
 logger = logging.getLogger("lang_learn.service")
 ERROR_LOG = Path(REPO_ROOT) / "inference" / "last_error.log"
@@ -416,6 +420,48 @@ class LangLearnService:
         except Exception as e:
             logger.error("Failed to clear prompt cache: %s", e)
             return {"error": str(e)}
+
+    @bentoml.api
+    def tts(
+        self,
+        context: bentoml.Context,
+        text: str,
+        language: str = "German",
+        level: str = "A2",
+        speaker: str = "default",
+    ) -> Annotated[Path, ContentType("audio/mpeg")]:
+        """Synthesize a dialogue line to MP3 audio using edge-tts.
+
+        Checks the Redis audio cache first. Generates via edge-tts on a miss
+        and stores the result with a 30-day TTL.
+
+        Args:
+            text:     The text to synthesize (German sentence, etc.).
+            language: Target language (e.g. 'German').
+            level:    CEFR level controlling speech rate (e.g. 'A2').
+            speaker:  Voice role — 'person_a', 'person_b', or 'default'.
+
+        Returns:
+            MP3 audio file path (served by BentoML as audio/mpeg).
+        """
+        # 1. Cache hit?
+        cached = self.cache.get_audio(text, language, level, speaker)
+        if cached:
+            logger.debug("TTS audio cache hit for text: %s...", text[:40])
+            output_path = Path(context.temp_dir) / "tts.mp3"
+            output_path.write_bytes(cached)
+            return output_path
+
+        # 2. Synthesize
+        audio = synthesize_line_sync(text, language, level, speaker)
+
+        # 3. Store in cache
+        if audio:
+            self.cache.set_audio(text, language, level, speaker, audio)
+
+        output_path = Path(context.temp_dir) / "tts.mp3"
+        output_path.write_bytes(audio)
+        return output_path
 
     # ----------------------------------------------------------------------
 
