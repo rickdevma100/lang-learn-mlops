@@ -463,5 +463,120 @@ class LangLearnService:
         output_path.write_bytes(audio)
         return output_path
 
+    @bentoml.api
+    def practice_check(
+        self,
+        user_text: str,
+        expected_english: str,
+        scenario: str,
+        speaker: str = "Person A",
+        preceding_context: str = "",
+        language: str = "German",
+        level: str = "A2",
+        max_tokens: int = 256,
+        temperature: float = 0.1,
+    ) -> dict:
+        """Check a student's practice answer for grammar and context relevance.
+
+        Used by Practice Mode — validates a single German sentence without
+        regenerating the dialogue. No Redis caching.
+
+        Args:
+            user_text:          The student's German sentence.
+            expected_english:   The English translation hint shown to the student.
+            scenario:           The conversation scenario (e.g. 'ordering food').
+            speaker:            Who the student is speaking as (e.g. 'Person B').
+            preceding_context:  The 2-3 dialogue lines before this turn.
+            language:           Target language (default: German).
+            level:              CEFR level (default: A2).
+            max_tokens:         Max tokens for LLM generation.
+            temperature:        LLM temperature (low for consistency).
+
+        Returns:
+            Dict with grammar_ok, on_topic, feedback, corrected_text, score.
+        """
+        import json as _json
+
+        t0 = time.time()
+
+        try:
+            template = load_prompt("practice_check.txt")
+            prompt = template.format(
+                level=level,
+                scenario=scenario,
+                speaker=speaker,
+                preceding_context=preceding_context,
+                expected_english=expected_english,
+                user_text=user_text,
+            )
+
+            text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
+            latency = time.time() - t0
+
+            # Parse JSON response
+            cleaned = text.strip()
+            cleaned = re.sub(r"^```(?:json|JSON)?\s*\n?", "", cleaned)
+            cleaned = re.sub(r"\n?\s*```\s*$", "", cleaned)
+            cleaned = cleaned.strip()
+
+            parsed = None
+            try:
+                parsed = _json.loads(cleaned)
+            except _json.JSONDecodeError:
+                json_match = re.search(r"\{.*\}", cleaned, re.DOTALL)
+                if json_match:
+                    try:
+                        parsed = _json.loads(json_match.group())
+                    except _json.JSONDecodeError:
+                        pass
+
+            if parsed is None:
+                logger.warning("practice_check: Could not parse LLM JSON: %s", cleaned[:300])
+                return {
+                    "error": "Failed to parse LLM response",
+                    "raw_response": cleaned[:500],
+                    "latency_s": round(latency, 2),
+                }
+
+            # Normalize and ensure defaults
+            result = {
+                "grammar_ok": parsed.get("grammar_ok", True),
+                "on_topic": parsed.get("on_topic", True),
+                "feedback": parsed.get("feedback", ""),
+                "corrected_text": parsed.get("corrected_text"),
+                "score": float(parsed.get("score", 1.0)),
+                "latency_s": round(latency, 2),
+            }
+
+            record_inference(
+                endpoint="practice_check",
+                language=language,
+                level=level,
+                status="success",
+                latency_s=latency,
+                response_text=text,
+                token_count=len(text.split()),
+            )
+
+            return result
+
+        except Exception as e:
+            latency = time.time() - t0
+            record_inference(
+                endpoint="practice_check",
+                language=language,
+                level=level,
+                status="error",
+                latency_s=latency,
+                response_text="",
+                token_count=0,
+            )
+            tb = _write_error("practice_check", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
     # ----------------------------------------------------------------------
 

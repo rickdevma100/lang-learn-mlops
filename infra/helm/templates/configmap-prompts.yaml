@@ -12,3 +12,5 @@ data:
     {{- .Values.prompts.scenario_dialogue | nindent 4 }}
   explain_word.txt: |
     {{- .Values.prompts.explain_word | nindent 4 }}
+  practice_check.txt: |
+    {{- .Values.prompts.practice_check | nindent 4 }}
