@@ -101,6 +101,18 @@ class LangLearnService:
         # Initialize semantic cache
         self.cache = SemanticCache()
 
+        # Load faster-whisper model for speech-to-text
+        try:
+            # pyrefly: ignore [missing-import]
+            from faster_whisper import WhisperModel
+            self.whisper_model = WhisperModel(
+                "tiny", device="cpu", compute_type="int8"
+            )
+            logger.info("faster-whisper 'tiny' model loaded successfully")
+        except Exception as e:
+            logger.warning("Could not load faster-whisper model: %s", e)
+            self.whisper_model = None
+
     @bentoml.api
     def scenario_dialogue(
         self,
@@ -462,6 +474,72 @@ class LangLearnService:
         output_path = Path(context.temp_dir) / "tts.mp3"
         output_path.write_bytes(audio)
         return output_path
+
+    @bentoml.api
+    def stt(
+        self,
+        audio: Annotated[Path, ContentType("audio/*")],
+        language: str = "de",
+    ) -> dict:
+        """Transcribe audio to text using faster-whisper.
+
+        Used by Practice Mode for voice input. Accepts any audio format
+        supported by FFmpeg (WebM, WAV, MP3, etc.).
+
+        Args:
+            audio:    Path to the uploaded audio file.
+            language: Language code for transcription (default: 'de' for German).
+
+        Returns:
+            Dict with text, language, and duration_s.
+        """
+        import os
+
+        t0 = time.time()
+
+        if self.whisper_model is None:
+            return {
+                "error": "Speech-to-text model not available",
+                "text": "",
+            }
+
+        try:
+            segments, info = self.whisper_model.transcribe(
+                str(audio),
+                language=language,
+                beam_size=3,
+                vad_filter=True,
+            )
+            text = " ".join(seg.text.strip() for seg in segments)
+            latency = time.time() - t0
+
+            logger.info(
+                "STT: transcribed %.1fs audio in %.2fs → '%s'",
+                info.duration, latency, text[:80],
+            )
+
+            return {
+                "text": text,
+                "language": info.language,
+                "duration_s": round(info.duration, 2),
+                "latency_s": round(latency, 2),
+            }
+
+        except Exception as e:
+            latency = time.time() - t0
+            tb = _write_error("stt", e)
+            return {
+                "error": str(e),
+                "text": "",
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+        finally:
+            # Explicitly clean up the temp audio file
+            try:
+                os.unlink(str(audio))
+            except OSError:
+                pass
 
     @bentoml.api
     def practice_check(

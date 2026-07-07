@@ -14,17 +14,22 @@ FROM python:3.12-slim AS base
 
 WORKDIR /app
 
-# System deps for llama-cpp-python compilation
+# System deps for llama-cpp-python compilation + ffmpeg for faster-whisper
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         build-essential \
         cmake \
-        libopenblas-dev && \
+        libopenblas-dev \
+        ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # Install Python dependencies (Linux / llama.cpp backend)
 COPY requirements-linux.txt requirements.txt ./
 RUN pip install --no-cache-dir -r requirements-linux.txt
+
+# Pre-download the faster-whisper tiny model so it's available at runtime
+# (pods may not have internet access to download it on first use)
+RUN python -c "from faster_whisper import WhisperModel; WhisperModel('tiny', device='cpu', compute_type='int8')"
 
 # Copy application code
 COPY src/ src/
