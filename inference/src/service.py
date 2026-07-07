@@ -551,7 +551,7 @@ class LangLearnService:
         preceding_context: str = "",
         language: str = "German",
         level: str = "A2",
-        max_tokens: int = 256,
+        max_tokens: int = 128,
         temperature: float = 0.1,
     ) -> dict:
         """Check a student's practice answer for grammar and context relevance.
