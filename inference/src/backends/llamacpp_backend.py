@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Iterable
 
+# pyrefly: ignore [missing-import]
 from ..config import MAX_TOKENS, MODEL_PATH, TEMPERATURE
 
 _llm = None
@@ -18,13 +19,16 @@ _llm = None
 def _get_llm():
     global _llm
     if _llm is None:
+        import os
+
         # pyrefly: ignore [missing-import]
         from llama_cpp import Llama
 
+        n_threads = int(os.getenv("LANG_LEARN_N_THREADS", "4"))
         _llm = Llama(
             model_path=MODEL_PATH,
             n_ctx=4096,
-            n_threads=4,
+            n_threads=n_threads,
             verbose=False,
         )
     return _llm

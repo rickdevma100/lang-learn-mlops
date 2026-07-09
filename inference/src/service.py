@@ -84,7 +84,7 @@ def _write_error(prefix: str, exc: BaseException) -> str:
 @bentoml.service(
     name="lang-learn",
     traffic={"timeout": 300},
-    resources={"cpu": "2", "memory": "16Gi"},
+    resources={"cpu": "4", "memory": "16Gi"},
 )
 class LangLearnService:
     """Single-replica service exposing language-learning generation APIs."""
