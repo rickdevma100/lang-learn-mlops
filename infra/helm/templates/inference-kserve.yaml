@@ -25,6 +25,8 @@ spec:
             value: {{ .Values.inference.model.path | quote }}
           - name: BACKEND
             value: "llamacpp"
+          - name: LANG_LEARN_N_THREADS
+            value: {{ .Values.inference.resources.requests.cpu | quote }}
           - name: PROMPTS_DIR
             value: "/app/prompts"
           - name: HF_HUB_OFFLINE
