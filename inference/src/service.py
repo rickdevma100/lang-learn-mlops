@@ -14,13 +14,14 @@ Metrics endpoint (auto-exposed by BentoML + prometheus_client):
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 import sys
 import time
 import traceback
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Generator
 
 import bentoml
 # pyrefly: ignore [missing-import]
@@ -31,7 +32,7 @@ from prometheus_client import make_asgi_app
 from .config import MAX_TOKENS, REPO_ROOT, TEMPERATURE
 from .metrics import MODEL_LOADED, USER_FEEDBACK, record_inference, record_cache_lookup
 from .prompts import load_prompt
-from .runner import generate, warmup
+from .runner import generate, generate_stream, warmup
 from .cache import SemanticCache
 from .tts import synthesize_line_sync
 
@@ -229,6 +230,194 @@ class LangLearnService:
                 "type": type(e).__name__,
                 "traceback": tb,
             }
+
+    @bentoml.api
+    def scenario_dialogue_stream(
+        self,
+        scenario: str,
+        max_tokens: int = MAX_TOKENS,
+        temperature: float = TEMPERATURE,
+        language: str = "German",
+        level: str = "A2",
+        bypass_cache: bool = False,
+        prompt_template: str = "",
+    ) -> Generator[str, None, None]:
+        """SSE streaming variant of scenario_dialogue.
+
+        Streams dialogue turns as Server-Sent Events as they are parsed
+        from the LLM's token stream. Each turn appears on the frontend
+        as a chat bubble the moment it is complete.
+
+        Event types:
+          - {"type": "turn", "index": N, "turn": {...}}  — a complete dialogue turn
+          - {"type": "done", "latency_s": ..., ...}       — final metadata
+          - {"type": "error", "error": ..., ...}           — error
+        """
+        t0 = time.time()
+        try:
+            # 1. Semantic Cache Lookup
+            if not bypass_cache:
+                is_hit, cached_response, similarity = self.cache.lookup(scenario, language, level)
+                if is_hit and cached_response:
+                    latency = time.time() - t0
+                    record_cache_lookup("scenario_dialogue", language, level, "hit", similarity)
+
+                    dialogue_turns = parse_dialogue(cached_response)
+                    cefr_score = record_inference(
+                        endpoint="scenario_dialogue",
+                        language=language,
+                        level=level,
+                        status="success",
+                        latency_s=latency,
+                        response_text=cached_response,
+                        token_count=0,
+                    )
+
+                    # Stream cached turns one-by-one with a small delay
+                    for i, turn in enumerate(dialogue_turns):
+                        event = json.dumps({
+                            "type": "turn",
+                            "index": i,
+                            "turn": turn,
+                        })
+                        yield f"data: {event}\n\n"
+                        time.sleep(0.15)  # small delay for progressive feel
+
+                    done_event = json.dumps({
+                        "type": "done",
+                        "latency_s": round(latency, 2),
+                        "cefr_score": cefr_score,
+                        "level": level,
+                        "cached": True,
+                        "cache_similarity": round(similarity, 3),
+                    })
+                    yield f"data: {done_event}\n\n"
+                    return
+
+                record_cache_lookup("scenario_dialogue", language, level, "miss", similarity)
+
+            # 2. Build prompt
+            if prompt_template:
+                template = prompt_template
+            else:
+                template = load_prompt("scenario_dialogue.txt")
+            prompt = template.format(scenario=scenario)
+
+            # 3. Stream tokens and parse dialogue turns progressively
+            if generate_stream is None:
+                # Fallback for backends that don't support streaming (e.g. MLX)
+                text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
+                latency = time.time() - t0
+                token_count = len(text.split())
+
+                cefr_score = record_inference(
+                    endpoint="scenario_dialogue",
+                    language=language,
+                    level=level,
+                    status="success",
+                    latency_s=latency,
+                    response_text=text,
+                    token_count=token_count,
+                )
+
+                dialogue_turns = parse_dialogue(text)
+                for i, turn in enumerate(dialogue_turns):
+                    event = json.dumps({"type": "turn", "index": i, "turn": turn})
+                    yield f"data: {event}\n\n"
+
+                if not bypass_cache:
+                    self.cache.store(text, scenario, language, level, cefr_score)
+
+                done_event = json.dumps({
+                    "type": "done",
+                    "latency_s": round(latency, 2),
+                    "cefr_score": cefr_score,
+                    "level": level,
+                    "cached": False,
+                })
+                yield f"data: {done_event}\n\n"
+                return
+
+            # Streaming path: accumulate tokens & detect new turns
+            accumulated_text = ""
+            sent_turn_count = 0
+
+            for token in generate_stream(prompt, max_tokens=max_tokens, temperature=temperature):
+                accumulated_text += token
+
+                # Try to parse dialogue turns from what we have so far
+                current_turns = parse_dialogue(accumulated_text)
+
+                # Only send turns that are "complete" — i.e., all except
+                # possibly the last one which may still be accumulating.
+                # We consider a turn complete if there's a subsequent turn
+                # starting after it (or if the LLM is done, handled below).
+                complete_count = max(0, len(current_turns) - 1)
+
+                if complete_count > sent_turn_count:
+                    for i in range(sent_turn_count, complete_count):
+                        event = json.dumps({
+                            "type": "turn",
+                            "index": i,
+                            "turn": current_turns[i],
+                        })
+                        yield f"data: {event}\n\n"
+                    sent_turn_count = complete_count
+
+            # LLM finished — send any remaining unsent turns
+            final_turns = parse_dialogue(accumulated_text)
+            for i in range(sent_turn_count, len(final_turns)):
+                event = json.dumps({
+                    "type": "turn",
+                    "index": i,
+                    "turn": final_turns[i],
+                })
+                yield f"data: {event}\n\n"
+
+            latency = time.time() - t0
+            token_count = len(accumulated_text.split())
+
+            cefr_score = record_inference(
+                endpoint="scenario_dialogue",
+                language=language,
+                level=level,
+                status="success",
+                latency_s=latency,
+                response_text=accumulated_text,
+                token_count=token_count,
+            )
+
+            if not bypass_cache:
+                self.cache.store(accumulated_text, scenario, language, level, cefr_score)
+
+            done_event = json.dumps({
+                "type": "done",
+                "latency_s": round(latency, 2),
+                "cefr_score": cefr_score,
+                "level": level,
+                "cached": False,
+            })
+            yield f"data: {done_event}\n\n"
+
+        except Exception as e:
+            latency = time.time() - t0
+            record_inference(
+                endpoint="scenario_dialogue",
+                language=language,
+                level=level,
+                status="error",
+                latency_s=latency,
+                response_text="",
+                token_count=0,
+            )
+            tb = _write_error("scenario_dialogue_stream", e)
+            error_event = json.dumps({
+                "type": "error",
+                "error": str(e),
+                "error_type": type(e).__name__,
+                "traceback": tb,
+            })
+            yield f"data: {error_event}\n\n"
 
     @bentoml.api
     def clear_cache(self) -> dict:

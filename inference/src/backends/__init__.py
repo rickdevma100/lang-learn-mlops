@@ -20,3 +20,12 @@ def generate(
     temperature: float = 0.7,
 ) -> str:  # pragma: no cover
     raise NotImplementedError
+
+
+def generate_stream(
+    prompt: str,
+    max_tokens: int = 512,
+    temperature: float = 0.7,
+) -> Iterable[str]:  # pragma: no cover
+    """Yield tokens one-by-one as the model generates them."""
+    raise NotImplementedError
