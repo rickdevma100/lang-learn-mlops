@@ -273,7 +273,7 @@ class LangLearnService:
                         token_count=0,
                     )
 
-                    # Stream cached turns one-by-one with a small delay
+                    # Stream cached turns one-by-one instantly
                     for i, turn in enumerate(dialogue_turns):
                         event = json.dumps({
                             "type": "turn",
@@ -281,7 +281,6 @@ class LangLearnService:
                             "turn": turn,
                         })
                         yield f"data: {event}\n\n"
-                        time.sleep(0.15)  # small delay for progressive feel
 
                     done_event = json.dumps({
                         "type": "done",
@@ -452,6 +451,44 @@ class LangLearnService:
             endpoint=endpoint, language=language, level=level, rating=rating
         ).inc()
         return {"status": "recorded", "rating": rating}
+
+    @bentoml.api
+    def explain_word_stream(
+        self,
+        word: str,
+        max_tokens: int = 256,
+        temperature: float = 0.0,
+    ) -> Generator[str, None, None]:
+        """SSE streaming variant of explain_word."""
+        t0 = time.time()
+        try:
+            template = load_prompt("explain_word.txt")
+            prompt = template.format(word=word)
+
+            if generate_stream is None:
+                raise RuntimeError("Streaming backend is not supported or not loaded")
+
+            for token in generate_stream(prompt, max_tokens=max_tokens, temperature=temperature):
+                event = json.dumps({
+                    "type": "token",
+                    "text": token
+                })
+                yield f"data: {event}\n\n"
+
+            latency = time.time() - t0
+            event = json.dumps({
+                "type": "done",
+                "latency_s": latency
+            })
+            yield f"data: {event}\n\n"
+
+        except Exception as e:
+            logger.exception("Error in explain_word_stream")
+            event = json.dumps({
+                "type": "error",
+                "error": str(e)
+            })
+            yield f"data: {event}\n\n"
 
     @bentoml.api
     def explain_word(

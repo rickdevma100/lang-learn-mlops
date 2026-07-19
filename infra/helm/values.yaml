@@ -50,7 +50,7 @@ inference:
     tag: latest
     pullPolicy: Always
 
-  replicas: 1
+  # replicas: 1
 
   minReplicas: 1
   maxReplicas: 2
@@ -65,11 +65,11 @@ inference:
 
   resources:
     requests:
+      memory: "4Gi"
+      cpu: "2"
+    limits:
       memory: "8Gi"
       cpu: "4"
-    limits:
-      memory: "16Gi"
-      cpu: "8"
 
 # ---------------------------------------------------------------------------
 # Frontend
