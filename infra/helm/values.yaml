@@ -104,6 +104,7 @@ prompts:
     Requirements:
     - Alternate clearly between Person A and Person B.
     - For each turn, write the German sentence first, followed immediately by its English translation on the next line starting with "Translation: ".
+    - Each dialogue turn must contain at least 7 words.
     - The conversation must contain at least 18 conversational turns in total (9 turns for Person A and 9 turns for Person B).
     - Ensure the dialogue is detailed, meeting the 18-turn requirement before stopping.
     - Use simple and natural German suitable for A1-A2 level learners.
