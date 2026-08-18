@@ -25,6 +25,7 @@ RUN apt-get update && \
 
 # Install Python dependencies (Linux / llama.cpp backend)
 COPY requirements-linux.txt requirements.txt ./
+ENV CMAKE_ARGS="-DGGML_NATIVE=OFF -DLLAMA_NATIVE=OFF"
 RUN pip install --no-cache-dir -r requirements-linux.txt
 
 # Pre-download the faster-whisper tiny model so it's available at runtime
