@@ -1,97 +1,19 @@
-You are an expert examiner creating official Goethe-Zertifikat A2 German Reading Exam (Lesen Teil 2) materials.
-
-Generate an authentic A2-level Department Store (Kaufhaus / Einkaufszentrum) Info Board Directory with 5 situational search questions.
-
-Rules:
-1. Info Board: Must list 4 to 5 floors (e.g., Untergeschoss/UG, Erdgeschoss/EG, 1. Stock, 2. Stock, 3. Stock) with typical department categories, products, or services listed for each floor.
-2. Questions: Exactly 5 questions (numbered 6 to 10). Each presents a customer seeking a specific item or service (e.g., "Sie suchen ein Geschenk für ein Kind und möchten Spielzeug kaufen. Wohin gehen Sie?").
-3. Options: Each question must have 3 options:
-   - "a": A specific floor (e.g., "1. Stock")
-   - "b": Another floor (e.g., "Erdgeschoss")
-   - "c": "Anderes Stockwerk / Nicht im Kaufhaus" (or a third floor)
-4. Exactly ONE option must be correct.
-5. Level: Vocabulary matches CEFR A2 shopping / public signage.
-
-Return ONLY a valid JSON object matching this schema:
-{{
-  "title": "Kaufhaus-Wegweiser (Info Board)",
+You are creating official Goethe-Zertifikat A2 Reading Exam (Lesen Teil 2) materials.
+Generate a shopping directory with 4-5 floors and 5 situational questions (numbered 6 to 10) with options a, b, c.
+Return ONLY a valid JSON object without markdown fences:
+{
+  "title": "Kaufhaus-Wegweiser",
   "directory": [
-    {{
-      "floor": "3. Stock",
-      "departments": "Restaurant, Café, Toiletten, Wickelraum, Reisebüro"
-    }},
-    {{
-      "floor": "2. Stock",
-      "departments": "Kinderkleidung, Spielwaren, Sportartikel, Campingbedarf"
-    }},
-    {{
-      "floor": "1. Stock",
-      "departments": "Damen- und Herrenmode, Schuhe, Taschen, Lederwaren"
-    }},
-    {{
-      "floor": "Erdgeschoss",
-      "departments": "Kosmetik, Parfümerie, Uhren, Schmuck, Information, Kundenservice"
-    }},
-    {{
-      "floor": "Untergeschoss",
-      "departments": "Lebensmittel, Bäckerei, Zeitschriften, Tabakwaren, Haushaltswaren, Elektrogeräte"
-    }}
+    {"floor": "2. Stock", "departments": "Kinderkleidung, Sportartikel"},
+    {"floor": "1. Stock", "departments": "Damen- und Herrenmode, Schuhe"},
+    {"floor": "Erdgeschoss", "departments": "Parfümerie, Uhren, Schmuck"},
+    {"floor": "Untergeschoss", "departments": "Lebensmittel, Haushaltswaren"}
   ],
   "items": [
-    {{
-      "id": 6,
-      "question": "Sie möchten neue Laufschuhe für das Jogging kaufen.",
-      "options": {{
-        "a": "1. Stock",
-        "b": "2. Stock",
-        "c": "Anderes Stockwerk"
-      }},
-      "answer_key": "b",
-      "explanation": "Sportartikel and shoes are in the 2. Stock."
-    }},
-    {{
-      "id": 7,
-      "question": "Sie möchten einen Kaffee trinken und ein Stück Kuchen essen.",
-      "options": {{
-        "a": "Erdgeschoss",
-        "b": "3. Stock",
-        "c": "Untergeschoss"
-      }},
-      "answer_key": "b",
-      "explanation": "Restaurant and Café are located on the 3. Stock."
-    }},
-    {{
-      "id": 8,
-      "question": "Sie suchen ein neues Parfüm als Geburtstagsgeschenk.",
-      "options": {{
-        "a": "Erdgeschoss",
-        "b": "1. Stock",
-        "c": "Untergeschoss"
-      }},
-      "answer_key": "a",
-      "explanation": "Parfümerie and Kosmetik are on the Erdgeschoss."
-    }},
-    {{
-      "id": 9,
-      "question": "Sie brauchen frisches Brot und Käse für das Frühstück.",
-      "options": {{
-        "a": "Erdgeschoss",
-        "b": "Untergeschoss",
-        "c": "3. Stock"
-      }},
-      "answer_key": "b",
-      "explanation": "Lebensmittel and Bäckerei are in the Untergeschoss."
-    }},
-    {{
-      "id": 10,
-      "question": "Sie möchten ein Smartphone oder ein Tablet kaufen.",
-      "options": {{
-        "a": "Untergeschoss",
-        "b": "1. Stock",
-        "c": "2. Stock"
-      }},
-      "answer_key": "a",
-      "explanation": "Elektrogeräte are in the Untergeschoss."
-    }}
+    {"id": 6, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "2. Stock", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Reason"},
+    {"id": 7, "question": "Customer need in German?", "options": {"a": "Erdgeschoss", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "a", "explanation": "Reason"},
+    {"id": 8, "question": "Customer need in German?", "options": {"a": "Untergeschoss", "b": "2. Stock", "c": "1. Stock"}, "answer_key": "a", "explanation": "Reason"},
+    {"id": 9, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "Erdgeschoss", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Reason"},
+    {"id": 10, "question": "Customer need in German?", "options": {"a": "2. Stock", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "c", "explanation": "Reason"}
   ]
-}}
+}

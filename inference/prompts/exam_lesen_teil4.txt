@@ -1,82 +1,21 @@
-You are an expert examiner creating official Goethe-Zertifikat A2 German Reading Exam (Lesen Teil 4) materials.
-
-Generate 6 classified advertisements (Anzeigen A, B, C, D, E, F) and 5 people seeking services/items (Personen 16 to 20).
-
-Rules:
-1. Advertisements: Exactly 6 short ads (labeled "a", "b", "c", "d", "e", "f"). Topics can be language courses, sports clubs, music lessons, apartment rentals, job vacancies, second-hand items, or travel offers. Each ad should have a title, short description, contact/price info (25-40 words).
-2. People: Exactly 5 people profiles (numbered 16 to 20), each with a specific request or need.
-3. Matching:
-   - Each person matches at most ONE ad ("a", "b", "c", "d", "e", "f") or matches NONE ("x").
-   - At least 1 (and at most 2) of the 5 people must have the answer "x" (no matching ad found).
-   - No two people should match the exact same ad (each ad used at most once).
-4. Level: Vocabulary matches CEFR A2 classified advertisements.
-
-Return ONLY a valid JSON object matching this schema:
-{{
-  "title": "Anzeigen und Personen (Matching Ads)",
-  "instructions": "Finden Sie für jede Person die passende Anzeige (a-f). Wenn es keine passende Anzeige gibt, wählen Sie 'x'.",
+You are creating official Goethe-Zertifikat A2 Reading Exam (Lesen Teil 4) materials.
+Generate 6 short classified ads (a to f) and 5 people (16 to 20) matching ads (answer_key is 'a'-'f' or 'x' for none).
+Return ONLY a valid JSON object without markdown fences:
+{
+  "title": "Anzeigen und Personen",
   "ads": [
-    {{
-      "id": "a",
-      "title": "Gitarrenunterricht für Anfänger und Fortgeschrittene",
-      "text": "Erfahrener Musiklehrer gibt privaten Gitarrenunterricht in Berlin-Mitte. Einzel- oder Gruppenunterricht möglich. Flexible Termine nach 18 Uhr. Tel: 0176-554433"
-    }},
-    {{
-      "id": "b",
-      "title": "Yoga am Morgen im Park",
-      "text": "Jeden Dienstag und Donnerstag 07:30 bis 08:30 Uhr im Volkspark. Für alle Altersgruppen. Bitte eigene Matte mitbringen. Kosten: 8 Euro pro Stunde. Info: yoga-park@web.de"
-    }},
-    {{
-      "id": "c",
-      "title": "Spanisch lernen in kleinen Gruppen",
-      "text": "Sprachschule Lingua bietet Abendkurse Spanisch für Urlauber und Einsteiger (Stufe A1-A2). Start jeden Montag. Zentrale Lage am Bahnhof. www.lingua-kurse.de"
-    }},
-    {{
-      "id": "d",
-      "title": "Günstiges Damenrad zu verkaufen",
-      "text": "Verkaufe gut erhaltenes City-Fahrrad mit 7 Gängen, Licht und Korb. Ideal für den Stadtverkehr. Preis: 95 Euro VB. Selbstabholung in Hamburg. Tel: 0151-998877"
-    }},
-    {{
-      "id": "e",
-      "title": "Wohnung zur Zwischenmiete",
-      "text": "Helle 2-Zimmer-Wohnung in München-Schwabing für 3 Monate möbliert abzugeben (September bis November). 750 Euro warm. Nichtraucher, keine Haustiere. Kontakt: wohnung-schwabing@gmx.de"
-    }},
-    {{
-      "id": "f",
-      "title": "Kochkurs: Italienische Küche leicht gemacht",
-      "text": "Lernen Sie echte Pasta und Pizza selbst zubereiten! Samstag von 14 bis 18 Uhr inklusive aller Zutaten und Getränke. Teilnahmegebühr: 45 Euro. www.kochstudio-roma.de"
-    }}
+    {"id": "a", "title": "Gitarrenunterricht", "text": "Musiklehrer gibt Gitarrenunterricht. Tel: 0176-112233"},
+    {"id": "b", "title": "Yoga im Park", "text": "Yoga jeden Dienstag um 8 Uhr. Info: yoga@web.de"},
+    {"id": "c", "title": "Spanischkurs", "text": "Abendkurs Spanisch A1. www.lingua.de"},
+    {"id": "d", "title": "Fahrrad zu verkaufen", "text": "Citybike 7 Gänge, 90 Euro. Tel: 0151-998877"},
+    {"id": "e", "title": "Möblierte Wohnung", "text": "2-Zimmer-Wohnung, 700 Euro. info@wohnen.de"},
+    {"id": "f", "title": "Kochkurs Pasta", "text": "Italienischer Kochkurs am Samstag. www.kochkurs.de"}
   ],
   "items": [
-    {{
-      "id": 16,
-      "person": "Lukas möchte in den Sommerferien nach Madrid reisen und vorher noch Grundkenntnisse in Spanisch erwerben.",
-      "answer_key": "c",
-      "explanation": "Ad C offers Spanish evening courses for beginners and travelers."
-    }},
-    {{
-      "id": 17,
-      "person": "Maria sucht ein preiswertes Fahrrad für ihren täglichen Weg zur Arbeit.",
-      "answer_key": "d",
-      "explanation": "Ad D offers a used city bicycle for 95 Euro."
-    }},
-    {{
-      "id": 18,
-      "person": "Jan möchte am Wochenende lernen, wie man frische Pasta kocht.",
-      "answer_key": "f",
-      "explanation": "Ad F offers an Italian cooking course on Saturday."
-    }},
-    {{
-      "id": 19,
-      "person": "Sarah möchte abends nach der Arbeit ein Instrument lernen, am liebsten Gitarre.",
-      "answer_key": "a",
-      "explanation": "Ad A offers guitar lessons with flexible evening slots after 18:00."
-    }},
-    {{
-      "id": 20,
-      "person": "Felix sucht einen Schwimmkurs für Fortgeschrittene am Wochenende.",
-      "answer_key": "x",
-      "explanation": "None of the ads offer swimming lessons, so the answer is 'x'."
-    }}
+    {"id": 16, "person": "Person wants Spanish course.", "answer_key": "c", "explanation": "Ad C matches"},
+    {"id": 17, "person": "Person wants a cheap bicycle.", "answer_key": "d", "explanation": "Ad D matches"},
+    {"id": 18, "person": "Person wants to learn cooking.", "answer_key": "f", "explanation": "Ad F matches"},
+    {"id": 19, "person": "Person wants guitar lessons.", "answer_key": "a", "explanation": "Ad A matches"},
+    {"id": 20, "person": "Person wants swimming lessons.", "answer_key": "x", "explanation": "No ad matches, so x"}
   ]
-}}
+}

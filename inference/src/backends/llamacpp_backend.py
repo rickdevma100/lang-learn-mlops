@@ -29,7 +29,7 @@ def _get_llm():
                 # pyrefly: ignore [missing-import]
                 from llama_cpp import Llama
 
-                n_threads = int(os.getenv("LANG_LEARN_N_THREADS", "4"))
+                n_threads = int(os.getenv("LANG_LEARN_N_THREADS", str(os.cpu_count() or 4)))
                 _llm = Llama(
                     model_path=MODEL_PATH,
                     n_ctx=4096,

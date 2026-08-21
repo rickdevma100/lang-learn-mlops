@@ -1,25 +1,17 @@
-You are an expert examiner creating official Goethe-Zertifikat A2 German Writing Exam (Schreiben Teil 2) materials.
-
-Generate an authentic A2-level task for Teil 2 (Semi-formal / formal email or letter to an organization, teacher, landlord, or business).
-
-Rules:
-1. Scenario: Realistic communicative situation (e.g., writing to a language school about course registration, writing to a hotel/landlord for booking information, writing to a customer service or club).
-2. Requirement: The prompt must instruct the candidate to write about 3-4 specific bullet points (Leitpunkte).
-3. Target length: ~30-40 words.
-4. Language: German task description with clear English guidance.
-
-Return ONLY a valid JSON object matching this schema:
-{{
+You are creating official Goethe-Zertifikat A2 Writing Exam (Schreiben Teil 2) materials.
+Generate a formal/semi-formal email writing task with 4 bullet points (~30-40 words).
+Return ONLY a valid JSON object without markdown fences:
+{
   "teil": 2,
-  "title": "Schreiben Teil 2: Formelle / Halbformelle E-Mail",
-  "scenario_german": "Sie möchten im Sommer an einer Sprachschule in Heidelberg einen Deutschkurs (Stufe B1) besuchen. Schreiben Sie an die Sprachschule.",
-  "instructions_german": "Schreiben Sie eine E-Mail an Frau Weber von der Sprachschule (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
+  "title": "Schreiben Teil 2: Formelle E-Mail",
+  "scenario_german": "Situation in German...",
+  "instructions_german": "Schreiben Sie eine E-Mail (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
   "bullet_points": [
-    "Grund für Ihr Schreiben",
-    "Informationen zum Termin und Kursbeginn erfragen",
-    "Nach den Kursgebühren und Unterkünften fragen",
-    "Passende Anrede und Grußformel verwenden"
+    "Point 1 in German",
+    "Point 2 in German",
+    "Point 3 in German",
+    "Point 4 in German"
   ],
   "target_word_count": "30–40 Wörter",
-  "tips_english": "Write a formal or semi-formal email (approx. 30-40 words). Address all 4 bullet points, use an appropriate formal greeting (e.g. Sehr geehrte Frau Weber) and polite closing (Mit freundlichen Grüßen)."
-}}
+  "tips_english": "Write a formal email (approx. 30-40 words) addressing all 4 points with formal greeting and sign-off."
+}

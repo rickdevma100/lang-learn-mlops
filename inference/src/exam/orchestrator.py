@@ -102,11 +102,11 @@ class ExamOrchestrator:
                 if isinstance(res, Exception):
                     logger.error("Schreiben Teil %d generation error: %s", idx, res)
                     if idx == 1:
-                        t_data, _ = await generate_schreiben_teil1(level)
+                        t_data = await generate_schreiben_teil1(level)
                     else:
-                        t_data, _ = await generate_schreiben_teil2(level)
+                        t_data = await generate_schreiben_teil2(level)
                 else:
-                    t_data, _ = res
+                    t_data = res
 
                 t_name = f"teil{idx}"
                 teils[t_name] = t_data

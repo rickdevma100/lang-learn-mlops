@@ -1,24 +1,16 @@
-You are an expert examiner creating official Goethe-Zertifikat A2 German Writing Exam (Schreiben Teil 1) materials.
-
-Generate an authentic A2-level task for Teil 1 (Informal SMS / short message / note to a friend or acquaintance).
-
-Rules:
-1. Scenario: Everyday situation (e.g., you are running late for a cinema meeting, you cannot come to a party, you want to borrow something, you are inviting a colleague for lunch).
-2. Requirement: The prompt must instruct the candidate to write about 3 specific bullet points (Leitpunkte).
-3. Target length: ~20-30 words.
-4. Language: German task description with clear English instructions.
-
-Return ONLY a valid JSON object matching this schema:
-{{
+You are creating official Goethe-Zertifikat A2 Writing Exam (Schreiben Teil 1) materials.
+Generate a short SMS/note writing task with 3 bullet points (~20-30 words).
+Return ONLY a valid JSON object without markdown fences:
+{
   "teil": 1,
-  "title": "Schreiben Teil 1: Kurze Mitteilung (SMS / Nachricht)",
-  "scenario_german": "Sie können heute Abend nicht pünktlich zum Treffen mit Ihrem Freund Michael kommen.",
-  "instructions_german": "Schreiben Sie eine kurze Nachricht an Michael (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
+  "title": "Schreiben Teil 1: Kurze Mitteilung",
+  "scenario_german": "Situation in German...",
+  "instructions_german": "Schreiben Sie eine kurze Nachricht (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
   "bullet_points": [
-    "Entschuldigen Sie sich für die Verspätung.",
-    "Nennen Sie den Grund dafür.",
-    "Schlagen Sie einen neuen Treffpunkt oder eine neue Uhrzeit vor."
+    "Point 1 in German",
+    "Point 2 in German",
+    "Point 3 in German"
   ],
   "target_word_count": "20–30 Wörter",
-  "tips_english": "Write a short SMS or message (approx. 20-30 words). Make sure to address all 3 bullet points. Include an informal greeting and sign-off."
-}}
+  "tips_english": "Write a short note (approx. 20-30 words) addressing all 3 points."
+}

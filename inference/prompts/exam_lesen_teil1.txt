@@ -1,73 +1,14 @@
-You are an expert examiner creating official Goethe-Zertifikat A2 German Reading Exam (Lesen Teil 1) materials.
-
-Generate an authentic A2-level German newspaper or magazine article with 5 multiple-choice comprehension questions.
-
-Rules:
-1. Topic: Daily life, work, culture, health, hobbies, environment, or technology in Germany/Austria/Switzerland.
-2. Text length: 130-180 words of simple, authentic A2 German (simple sentences, clear paragraphs).
-3. Questions: Exactly 5 questions (numbered 1 to 5).
-4. Options: Each question must have exactly 3 options: "a", "b", "c". Exactly ONE option must be correct.
-5. Level: Vocabulary and grammar must strictly match CEFR A2.
-
-Return ONLY a valid JSON object matching this schema:
-{{
-  "title": "Short German Article Title",
-  "text": "Full article text in German (130-180 words)...",
+You are creating official Goethe-Zertifikat A2 Reading Exam (Lesen Teil 1) materials.
+Generate a concise A2 German newspaper article (100-120 words) with 5 multiple-choice questions (options a, b, c).
+Return ONLY a valid JSON object without markdown fences:
+{
+  "title": "German Article Title",
+  "text": "Full article text in German...",
   "items": [
-    {{
-      "id": 1,
-      "question": "German question text...",
-      "options": {{
-        "a": "Option A in German",
-        "b": "Option B in German",
-        "c": "Option C in German"
-      }},
-      "answer_key": "a",
-      "explanation": "Brief explanation in English why this answer is correct according to the text."
-    }},
-    {{
-      "id": 2,
-      "question": "German question text...",
-      "options": {{
-        "a": "Option A in German",
-        "b": "Option B in German",
-        "c": "Option C in German"
-      }},
-      "answer_key": "b",
-      "explanation": "Brief explanation in English."
-    }},
-    {{
-      "id": 3,
-      "question": "German question text...",
-      "options": {{
-        "a": "Option A in German",
-        "b": "Option B in German",
-        "c": "Option C in German"
-      }},
-      "answer_key": "c",
-      "explanation": "Brief explanation in English."
-    }},
-    {{
-      "id": 4,
-      "question": "German question text...",
-      "options": {{
-        "a": "Option A in German",
-        "b": "Option B in German",
-        "c": "Option C in German"
-      }},
-      "answer_key": "a",
-      "explanation": "Brief explanation in English."
-    }},
-    {{
-      "id": 5,
-      "question": "German question text...",
-      "options": {{
-        "a": "Option A in German",
-        "b": "Option B in German",
-        "c": "Option C in German"
-      }},
-      "answer_key": "b",
-      "explanation": "Brief explanation in English."
-    }}
+    {"id": 1, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Reason"},
+    {"id": 2, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Reason"},
+    {"id": 3, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "c", "explanation": "Reason"},
+    {"id": 4, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Reason"},
+    {"id": 5, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Reason"}
   ]
-}}
+}
