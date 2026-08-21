@@ -1,0 +1,25 @@
+You are an expert examiner creating official Goethe-Zertifikat A2 German Writing Exam (Schreiben Teil 2) materials.
+
+Generate an authentic A2-level task for Teil 2 (Semi-formal / formal email or letter to an organization, teacher, landlord, or business).
+
+Rules:
+1. Scenario: Realistic communicative situation (e.g., writing to a language school about course registration, writing to a hotel/landlord for booking information, writing to a customer service or club).
+2. Requirement: The prompt must instruct the candidate to write about 3-4 specific bullet points (Leitpunkte).
+3. Target length: ~30-40 words.
+4. Language: German task description with clear English guidance.
+
+Return ONLY a valid JSON object matching this schema:
+{{
+  "teil": 2,
+  "title": "Schreiben Teil 2: Formelle / Halbformelle E-Mail",
+  "scenario_german": "Sie möchten im Sommer an einer Sprachschule in Heidelberg einen Deutschkurs (Stufe B1) besuchen. Schreiben Sie an die Sprachschule.",
+  "instructions_german": "Schreiben Sie eine E-Mail an Frau Weber von der Sprachschule (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
+  "bullet_points": [
+    "Grund für Ihr Schreiben",
+    "Informationen zum Termin und Kursbeginn erfragen",
+    "Nach den Kursgebühren und Unterkünften fragen",
+    "Passende Anrede und Grußformel verwenden"
+  ],
+  "target_word_count": "30–40 Wörter",
+  "tips_english": "Write a formal or semi-formal email (approx. 30-40 words). Address all 4 bullet points, use an appropriate formal greeting (e.g. Sehr geehrte Frau Weber) and polite closing (Mit freundlichen Grüßen)."
+}}

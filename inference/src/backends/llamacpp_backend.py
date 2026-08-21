@@ -13,24 +13,29 @@ from typing import Iterable
 # pyrefly: ignore [missing-import]
 from ..config import MAX_TOKENS, MODEL_PATH, TEMPERATURE
 
+import threading
+
 _llm = None
+_lock = threading.Lock()
 
 
 def _get_llm():
     global _llm
     if _llm is None:
-        import os
+        with _lock:
+            if _llm is None:
+                import os
 
-        # pyrefly: ignore [missing-import]
-        from llama_cpp import Llama
+                # pyrefly: ignore [missing-import]
+                from llama_cpp import Llama
 
-        n_threads = int(os.getenv("LANG_LEARN_N_THREADS", "4"))
-        _llm = Llama(
-            model_path=MODEL_PATH,
-            n_ctx=4096,
-            n_threads=n_threads,
-            verbose=False,
-        )
+                n_threads = int(os.getenv("LANG_LEARN_N_THREADS", "4"))
+                _llm = Llama(
+                    model_path=MODEL_PATH,
+                    n_ctx=4096,
+                    n_threads=n_threads,
+                    verbose=False,
+                )
     return _llm
 
 
@@ -51,11 +56,12 @@ def generate(
     apply their chat template and produce proper responses.
     """
     llm = _get_llm()
-    output = llm.create_chat_completion(
-        messages=[{"role": "user", "content": prompt}],
-        max_tokens=max_tokens,
-        temperature=temperature,
-    )
+    with _lock:
+        output = llm.create_chat_completion(
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            temperature=temperature,
+        )
     return output["choices"][0]["message"]["content"]
 
 

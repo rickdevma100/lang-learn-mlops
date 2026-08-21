@@ -5,11 +5,17 @@ from __future__ import annotations
 import sys
 from unittest.mock import MagicMock, patch
 
-# Mock third-party dependencies before importing the tested module
-sys.modules["redis"] = MagicMock()
-sys.modules["sentence_transformers"] = MagicMock()
+# Mock sentence_transformers if not installed
+if "sentence_transformers" not in sys.modules:
+    try:
+        # pyrefly: ignore [missing-import]
+        import sentence_transformers
+    except ImportError:
+        sys.modules["sentence_transformers"] = MagicMock()
 
+# pyrefly: ignore [missing-import]
 import numpy as np
+# pyrefly: ignore [missing-import]
 import pytest
 
 from inference.src.cache import SemanticCache

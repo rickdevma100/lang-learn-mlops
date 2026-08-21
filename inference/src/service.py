@@ -35,6 +35,7 @@ from .prompts import load_prompt
 from .runner import generate, generate_stream, warmup
 from .cache import SemanticCache
 from .tts import synthesize_line_sync
+from .exam import ExamOrchestrator
 
 logger = logging.getLogger("lang_learn.service")
 ERROR_LOG = Path(REPO_ROOT) / "inference" / "last_error.log"
@@ -101,6 +102,9 @@ class LangLearnService:
 
         # Initialize semantic cache
         self.cache = SemanticCache()
+
+        # Initialize exam orchestrator
+        self.exam_orchestrator = ExamOrchestrator()
 
         # Load faster-whisper model for speech-to-text
         try:
@@ -883,4 +887,81 @@ class LangLearnService:
             }
 
     # ----------------------------------------------------------------------
+    # Goethe A2 Exam Suite Endpoints
+    # ----------------------------------------------------------------------
+
+    @bentoml.api
+    async def exam_generate(
+        self,
+        module: str = "lesen",
+        level: str = "A2",
+    ) -> dict:
+        """Generate a complete Goethe-Zertifikat A2 exam paper for the requested module.
+
+        Executes only the Teil generators for the requested `module` (e.g. 'lesen' or 'schreiben')
+        in parallel via asyncio.gather. Stores paper + answer key in Redis and returns
+        the sanitized paper to the client.
+        """
+        t0 = time.time()
+        try:
+            paper = await self.exam_orchestrator.generate_paper(module=module, level=level)
+            latency = time.time() - t0
+            logger.info("Generated %s exam paper (%s) in %.2fs", module, paper.get("paper_id"), latency)
+            return paper
+        except Exception as e:
+            tb = _write_error("exam_generate", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
+    @bentoml.api
+    def exam_evaluate(
+        self,
+        paper_id: str,
+        module: str,
+        answers: dict,
+        level: str = "A2",
+    ) -> dict:
+        """Evaluate a completed Goethe A2 exam submission against the Redis answer key or rubric."""
+        t0 = time.time()
+        try:
+            result = self.exam_orchestrator.evaluate_paper(
+                paper_id=paper_id,
+                module=module,
+                user_answers=answers,
+                level=level,
+            )
+            latency = time.time() - t0
+            logger.info(
+                "Evaluated %s submission for paper %s in %.2fs -> Score: %.1f/25",
+                module, paper_id, latency, result.get("module_score", 0.0)
+            )
+            return result
+        except Exception as e:
+            tb = _write_error("exam_evaluate", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
+    @bentoml.api
+    def exam_history(
+        self,
+        limit: int = 20,
+    ) -> dict:
+        """Retrieve recent exam submission history from Redis."""
+        try:
+            history = self.exam_orchestrator.get_history(limit=limit)
+            return {"history": history}
+        except Exception as e:
+            tb = _write_error("exam_history", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
 
