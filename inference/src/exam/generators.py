@@ -178,7 +178,7 @@ THEMES_TEIL3 = [
 # ---------------------------------------------------------------------------
 
 async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 1 (Newspaper Article). Returns (sanitized_teil, answer_key)."""
+    """Generate Lesen Teil 1 (Newspaper Article, 180-220 words). Returns (sanitized_teil, answer_key)."""
     selected_theme = random.choice(THEMES_TEIL1)
     fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL1, "lesen_t1")
     source = "fallback"
@@ -186,8 +186,8 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil1.txt")
         prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=350, temperature=0.75),
-            timeout=10.0
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=550, temperature=0.75),
+            timeout=15.0
         )
         parsed = _extract_json(raw)
         if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
@@ -234,7 +234,7 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
 
 async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 2 (Kaufhaus Info Board). Returns (sanitized_teil, answer_key)."""
+    """Generate Lesen Teil 2 (Kaufhaus Info Board, 5-6 floors). Returns (sanitized_teil, answer_key)."""
     selected_theme = random.choice(THEMES_TEIL2)
     fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL2, "lesen_t2")
     source = "fallback"
@@ -242,8 +242,8 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil2.txt")
         prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=350, temperature=0.75),
-            timeout=10.0
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=500, temperature=0.75),
+            timeout=15.0
         )
         parsed = _extract_json(raw)
         if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
@@ -290,7 +290,7 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
 
 async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 3 (Personal Email). Returns (sanitized_teil, answer_key)."""
+    """Generate Lesen Teil 3 (Personal Email, 200-250 words). Returns (sanitized_teil, answer_key)."""
     selected_theme = random.choice(THEMES_TEIL3)
     fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL3, "lesen_t3")
     source = "fallback"
@@ -298,8 +298,8 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil3.txt")
         prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=350, temperature=0.75),
-            timeout=10.0
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=550, temperature=0.75),
+            timeout=15.0
         )
         parsed = _extract_json(raw)
         if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
@@ -349,14 +349,14 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
 
 async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 4 (6 Ads + 5 People Matching). Returns (sanitized_teil, answer_key)."""
+    """Generate Lesen Teil 4 (6 Detailed Website Ads + 5 People Matching). Returns (sanitized_teil, answer_key)."""
     fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL4, "lesen_t4")
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil4.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=400, temperature=0.75),
-            timeout=10.0
+            asyncio.to_thread(generate, template, max_tokens=600, temperature=0.75),
+            timeout=15.0
         )
         parsed = _extract_json(raw)
         if parsed and "ads" in parsed and len(parsed["ads"]) >= 5 and "items" in parsed and len(parsed["items"]) >= 4:
@@ -410,8 +410,8 @@ async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
     try:
         template = load_prompt("exam_schreiben_teil1.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=220, temperature=0.75),
-            timeout=8.0
+            asyncio.to_thread(generate, template, max_tokens=250, temperature=0.75),
+            timeout=10.0
         )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) == 3:
@@ -434,8 +434,8 @@ async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
     try:
         template = load_prompt("exam_schreiben_teil2.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=250, temperature=0.75),
-            timeout=8.0
+            asyncio.to_thread(generate, template, max_tokens=300, temperature=0.75),
+            timeout=10.0
         )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 3:
@@ -466,253 +466,190 @@ THEMES_TEIL3 = [
 ]
 
 # ---------------------------------------------------------------------------
-# Rich Multi-Paper Fallback Pools (Ensures 100% variety even in offline mode)
+# Rich Multi-Paper Fallback Pools (Full Goethe-Zertifikat A2 Certified Standard)
 # ---------------------------------------------------------------------------
 
 POOL_LESEN_TEIL1: List[Dict[str, Any]] = [
     {
-        "title": "Immer mehr Menschen fahren mit dem Fahrrad zur Arbeit",
-        "text": "In deutschen Großstädten nutzen immer mehr Menschen das Fahrrad für den täglichen Weg zur Arbeit. Eine neue Studie zeigt, dass fast 25 Prozent der Beschäftigten regelmäßig mit dem Rad fahren. Viele Städte bauen deshalb neue, breite Radwege. Besonders junge Leute finden das Radfahren praktisch, gesund und umweltfreundlich. Sie sparen Geld für Benzin und Parkplätze und müssen nicht im Stau stehen. Allerdings fordern Experten mehr sichere Abstellplätze an Bahnhöfen und Bürogebäuden.",
+        "title": "Der TV-Koch Stefan Berger: »Ich versuche immer wieder etwas Neues.«",
+        "text": "Bei Stefan Berger gibt es Gerichte, von denen man vorher noch nie gehört hat. Er hat dauernd neue Ideen. Den Gästen gefällt das. Man muss unbedingt vorher anrufen und einen der wenigen Tische bestellen, wenn man in seinem Restaurant „Bremer Lokal“ essen möchte. Er hat viele Gäste, will aber kein zweites Lokal aufmachen. „Klar, ich könnte vielleicht reich damit werden, aber ich habe mich bewusst dagegen entschieden. Ich mag es einfach, wie wir hier arbeiten.“\n\nStefan Berger wurde 1968 im Rheinland geboren, war auf der Realschule und lernte dann in einem großen Hotel kochen.\n\nNach der Berufsausbildung brauchte er erstmal eine zwei-jährige Pause. Er fuhr durch die Welt, hatte verschiedene Jobs und lernte viel Neues kennen. Wegen einer Frau kam er dann nach Bremen. Das „Bremer Lokal“ in seiner Nachbarschaft suchte einen Koch, Berger nahm die Stelle an, und drei Jahre später kaufte er das Restaurant.\n\nDie meisten kennen ihn aber erst durch seine Fernsehshow „Berger kocht“. In der beliebten Sendung besuchen ihn Sänger und Schauspieler und kochen mit ihm ihre Lieblingsrezepte.",
         "items": [
             {
                 "id": 1,
-                "question": "Wie viele Beschäftigte fahren laut der Studie regelmäßig mit dem Rad?",
-                "options": {"a": "Fast ein Viertel", "b": "Mehr als die Hälfte", "c": "Nur sehr wenige"},
-                "answer_key": "a",
-                "explanation": "Laut Text nutzen 'fast 25 Prozent' (also fast ein Viertel) das Rad."
+                "question": "Im „Bremer Lokal“...",
+                "options": {
+                    "a": "gibt es traditionelle Gerichte.",
+                    "b": "muss man vorher reservieren.",
+                    "c": "kann man den Koch selten sehen."
+                },
+                "answer_key": "b",
+                "explanation": "Im Text steht: 'Man muss unbedingt vorher anrufen und einen der wenigen Tische bestellen'."
             },
             {
                 "id": 2,
-                "question": "Warum bauen viele Städte neue Radwege?",
-                "options": {"a": "Weil Autos verboten werden", "b": "Weil mehr Menschen Rad fahren", "c": "Weil Radwege billiger sind"},
+                "question": "Stefan Berger will kein zweites Restaurant eröffnen, weil...",
+                "options": {
+                    "a": "er nicht genug Geld dafür hat.",
+                    "b": "ihm seine jetzige Arbeit gefällt.",
+                    "c": "er keine guten Köche findet."
+                },
                 "answer_key": "b",
-                "explanation": "Wegen der wachsenden Zahl an Radfahrern bauen viele Städte neue Radwege."
+                "explanation": "Berger sagt: 'Ich mag es einfach, wie wir hier arbeiten'."
             },
             {
                 "id": 3,
-                "question": "Was finden junge Leute am Radfahren besonders gut?",
-                "options": {"a": "Es ist teuer", "b": "Man muss viel reparieren", "c": "Es ist gesund und spart Geld"},
+                "question": "Nach seiner Ausbildung...",
+                "options": {
+                    "a": "arbeitete er sofort in Bremen.",
+                    "b": "eröffnete er eine Kochschule.",
+                    "c": "reiste er durch die Welt."
+                },
                 "answer_key": "c",
-                "explanation": "Sie finden es 'praktisch, gesund und umweltfreundlich' und sparen Geld."
+                "explanation": "Laut Text fuhr er zwei Jahre lang durch die Welt und hatte verschiedene Jobs."
             },
             {
                 "id": 4,
-                "question": "Was müssen Radfahrer nicht tun?",
-                "options": {"a": "Im Stau stehen", "b": "Einen Helm tragen", "c": "Auf die Ampeln achten"},
+                "question": "Stefan Berger kam nach Bremen,...",
+                "options": {
+                    "a": "wegen einer Frau.",
+                    "b": "um ein Restaurant zu kaufen.",
+                    "c": "weil er ein Hotel eröffnen wollte."
+                },
                 "answer_key": "a",
-                "explanation": "Im Text steht: 'Sie ... müssen nicht im Stau stehen'."
+                "explanation": "Im Text steht ausdrücklich: 'Wegen einer Frau kam er dann nach Bremen'."
             },
             {
                 "id": 5,
-                "question": "Was fordern Experten für die Zukunft?",
-                "options": {"a": "Höhere Preise für Fahrräder", "b": "Mehr sichere Abstellplätze", "c": "Schnellere Züge"},
-                "answer_key": "b",
-                "explanation": "Experten fordern 'mehr sichere Abstellplätze an Bahnhöfen'."
+                "question": "In seiner Fernsehsendung...",
+                "options": {
+                    "a": "kochen prominente Gäste mit ihm.",
+                    "b": "zeigt er nur schnelle Snacks.",
+                    "c": "besucht er Restaurants in ganz Europa."
+                },
+                "answer_key": "a",
+                "explanation": "In der Sendung besuchen ihn bekannte Sänger und Schauspieler und kochen mit ihm."
             }
         ]
     },
     {
-        "title": "Selber kochen: Warum frisches Essen im Trend liegt",
-        "text": "Immer mehr junge Erwachsene in Deutschland kochen wieder täglich zu Hause selbst. Statt Fertiggerichte aus der Mikrowelle zu essen, kaufen viele frisches Gemüse auf dem Wochenmarkt. Eine Umfrage zeigt, dass 60 Prozent der Befragten Kochen als entspannendes Hobby nach der Arbeit sehen. Beliebt sind vor allem einfache Gerichte wie Nudeln mit Tomatensoße oder bunte Gemüsesuppen. Viele teilen außerdem Fotos ihrer Gerichte in sozialen Medien und tauschen Rezepte aus.",
+        "title": "Mobilität im Wandel: Immer mehr Menschen fahren mit dem Fahrrad zur Arbeit",
+        "text": "In vielen deutschen Städten nutzen immer mehr Beschäftigte das Fahrrad für den täglichen Arbeitsweg. Eine aktuelle Studie des Verkehrsministeriums zeigt, dass mittlerweile fast ein Viertel der Berufstätigen regelmäßig mit dem Rad fährt. Vor allem in Ballungsräumen wie Berlin, München und Hamburg verzichten viele Menschen bewusst auf das eigene Auto.\n\nDie Gründe dafür sind vielfältig: Radfahren ist nicht nur gesund und umweltfreundlich, sondern spart auch viel Geld für teures Benzin, Tickets und Parkgebühren. Zudem entfällt das tägliche Ärgernis über Staus im morgendlichen Berufsverkehr.\n\nViele Städte reagieren auf diesen Trend und investieren kräftig in moderne Infrastruktur. Breite Fahrradschnellwege und getrennte Radspuren sorgen für mehr Sicherheit im Straßenverkehr.\n\nDennoch sehen Verkehrsexperten noch großen Verbesserungsbedarf. Vor allem an Bahnhöfen und großen Bürokomplexen fehlen oft überdachte und diebstahlsichere Abstellplätze sowie Ladestationen für moderne E-Bikes.",
         "items": [
             {
                 "id": 1,
-                "question": "Was machen immer mehr junge Erwachsene laut dem Text?",
-                "options": {"a": "Sie gehen jeden Tag ins Restaurant", "b": "Sie kochen selbst zu Hause", "c": "Sie essen nur Fertiggerichte"},
-                "answer_key": "b",
-                "explanation": "Der Text sagt: 'Immer mehr junge Erwachsene in Deutschland kochen wieder täglich zu Hause selbst'."
+                "question": "Wie viele Berufstätige fahren laut der Studie regelmäßig mit dem Rad?",
+                "options": {
+                    "a": "Fast ein Viertel",
+                    "b": "Mehr als die Hälfte",
+                    "c": "Nur sehr wenige"
+                },
+                "answer_key": "a",
+                "explanation": "Laut Text nutzen 'mittlerweile fast ein Viertel der Berufstätigen regelmäßig das Rad'."
             },
             {
                 "id": 2,
-                "question": "Wo kaufen viele Menschen frische Zutaten?",
-                "options": {"a": "Auf dem Wochenmarkt", "b": "An der Tankstelle", "c": "Im Internet"},
-                "answer_key": "a",
-                "explanation": "Laut Text kaufen viele 'frisches Gemüse auf dem Wochenmarkt'."
+                "question": "Warum verzichten viele Beschäftigte auf das Auto?",
+                "options": {
+                    "a": "Weil Autos in Städten verboten sind",
+                    "b": "Weil Radfahren Geld spart und Staus vermeidet",
+                    "c": "Weil Benzin überall kostenlos ist"
+                },
+                "answer_key": "b",
+                "explanation": "Radfahren spart Geld für Benzin und Parkplätze und vermeidet Staus."
             },
             {
                 "id": 3,
-                "question": "Wie empfinden 60 Prozent der Befragten das Kochen?",
-                "options": {"a": "Als stressige Pflicht", "b": "Als sehr teuer", "c": "Als entspannendes Hobby"},
+                "question": "Was machen viele Städte, um Radfahrer zu unterstützen?",
+                "options": {
+                    "a": "Sie verschenken neue Fahrräder",
+                    "b": "Sie bauen breite Fahrradschnellwege",
+                    "c": "Sie sperren alle Fußgängerzonen"
+                },
+                "answer_key": "b",
+                "explanation": "Viele Städte investieren in breite Fahrradschnellwege und getrennte Radspuren."
+            },
+            {
+                "id": 4,
+                "question": "Welches Problem sehen Verkehrsexperten weiterhin?",
+                "options": {
+                    "a": "Es gibt zu wenige sichere Abstellplätze",
+                    "b": "Fahrräder sind zu schnell",
+                    "c": "Niemand möchte E-Bikes fahren"
+                },
+                "answer_key": "a",
+                "explanation": "Experten betonen, dass diebstahlsichere Abstellplätze an Bahnhöfen fehlen."
+            },
+            {
+                "id": 5,
+                "question": "In welchen Städten ist der Trend laut Text besonders stark?",
+                "options": {
+                    "a": "Nur in kleinen Dörfern",
+                    "b": "In Großstädten wie Berlin, München und Hamburg",
+                    "c": "Ausschließlich an der Nordsee"
+                },
+                "answer_key": "b",
+                "explanation": "Im Text werden Ballungsräume wie Berlin, München und Hamburg explizit genannt."
+            }
+        ]
+    },
+    {
+        "title": "Frische Küche im Alltag: Warum Selberkochen bei jungen Erwachsenen boomt",
+        "text": "Immer mehr junge Erwachsene in Deutschland entdecken das Kochen als entspannendes Hobby neu. Statt nach einem langen Arbeitstag schnell zu ungesunden Fertiggerichten oder Lieferdiensten zu greifen, stellen sich viele gerne selbst an den Herd.\n\nEine repräsentative Umfrage ergab, dass über 60 Prozent der 20- bis 35-Jährigen mindestens viermal pro Woche frisch kochen. Besonders beliebt ist der Einkauf auf regionalen Wochenmärkten, wo saisonales Gemüse und frische Kräuter direkt vom Bauern angeboten werden.\n\nBesonders im Trend liegen einfache, mediterrane Gerichte wie Pasta mit hausgemachter Tomatensoße, bunte Ofengemüse-Bleche oder frische Salate mit Nüssen und Ziegenkäse. Die Zubereitung dauert oft nicht länger als 30 Minuten.\n\nDarüber hinaus hat das Kochen auch eine starke soziale Komponente: Viele Freunde treffen sich am Wochenende zum gemeinsamen Kochen und tauschen ihre Lieblingsrezepte und Fotos auf Social Media aus.",
+        "items": [
+            {
+                "id": 1,
+                "question": "Was machen viele junge Erwachsene laut dem Text nach der Arbeit?",
+                "options": {
+                    "a": "Sie gehen jeden Tag ins Luxusrestaurant",
+                    "b": "Sie kochen gerne selbst frische Gerichte",
+                    "c": "Sie essen ausschließlich Tiefkühlkost"
+                },
+                "answer_key": "b",
+                "explanation": "Im Text steht: 'stellen sich viele gerne selbst an den Herd'."
+            },
+            {
+                "id": 2,
+                "question": "Wo kaufen viele junge Leute am liebsten ihre Zutaten ein?",
+                "options": {
+                    "a": "Auf regionalen Wochenmärkten",
+                    "b": "An der nächsten Autobahn-Tankstelle",
+                    "c": "In reinen Online-Kaufhäusern"
+                },
+                "answer_key": "a",
+                "explanation": "Laut Text ist der Einkauf auf regionalen Wochenmärkten besonders beliebt."
+            },
+            {
+                "id": 3,
+                "question": "Welche Gerichte werden laut Text besonders geschätzt?",
+                "options": {
+                    "a": "Sehr komplizierte 5-Gänge-Menüs",
+                    "b": "Einfache und schnelle mediterrane Speisen",
+                    "c": "Nur Fleischgerichte ohne Gemüse"
+                },
+                "answer_key": "b",
+                "explanation": "Im Trend liegen einfache Gerichte wie Pasta und Ofengemüse, die unter 30 Minuten dauern."
+            },
+            {
+                "id": 4,
+                "question": "Was machen viele Freunde am Wochenende?",
+                "options": {
+                    "a": "Sie kochen gemeinsam und tauschen Rezepte",
+                    "b": "Sie besuchen Kochschulen im Ausland",
+                    "c": "Sie schreiben professionelle Kochbücher"
+                },
+                "answer_key": "a",
+                "explanation": "Freunde treffen sich zum gemeinsamen Kochen und tauschen Rezepte aus."
+            },
+            {
+                "id": 5,
+                "question": "Wie viel Prozent der 20- bis 35-Jährigen kochen mehrmals wöchentlich frisch?",
+                "options": {
+                    "a": "Unter 10 Prozent",
+                    "b": "Genau die Hälfte",
+                    "c": "Über 60 Prozent"
+                },
                 "answer_key": "c",
-                "explanation": "Im Text steht: '60 Prozent der Befragten sehen Kochen als entspannendes Hobby nach der Arbeit'."
-            },
-            {
-                "id": 4,
-                "question": "Welche Gerichte sind besonders beliebt?",
-                "options": {"a": "Schwierige 5-Gänge-Menüs", "b": "Einfache Nudeln und Suppen", "c": "Ausschließlich Fleischgerichte"},
-                "answer_key": "b",
-                "explanation": "Beliebt sind einfache Gerichte wie Nudeln mit Tomatensoße oder Gemüsesuppen."
-            },
-            {
-                "id": 5,
-                "question": "Was machen viele Menschen in sozialen Medien?",
-                "options": {"a": "Kochbücher verkaufen", "b": "Fotos und Rezepte teilen", "c": "Restaurants kritisieren"},
-                "answer_key": "b",
-                "explanation": "Sie teilen Fotos ihrer Gerichte und tauschen Rezepte aus."
-            }
-        ]
-    },
-    {
-        "title": "Wochenende in der Natur: Wandern begeistert junge Leute",
-        "text": "Früher galt Wandern als Hobby für Senioren, doch heute packen immer mehr junge Menschen ihren Rucksack für eine Tour in die Berge. Besonders an den Wochenenden sind Wanderwege im Schwarzwald und in den Alpen gut besucht. Viele schätzen die frische Luft, die Bewegung und die Ruhe abseits der lauten Städte. Moderne Apps helfen bei der Planung der besten Routen. Nach einer langen Wanderung kehren viele in gemütliche Berghütten ein, um regionale Spezialitäten wie Käsespätzle zu genießen.",
-        "items": [
-            {
-                "id": 1,
-                "question": "Wer geht heute laut Text immer öfter wandern?",
-                "options": {"a": "Nur ältere Senioren", "b": "Immer mehr junge Menschen", "c": "Ausschließlich Profisportler"},
-                "answer_key": "b",
-                "explanation": "Im Text steht: 'heute packen immer mehr junge Menschen ihren Rucksack'."
-            },
-            {
-                "id": 2,
-                "question": "Welche Regionen sind am Wochenende besonders beliebt?",
-                "options": {"a": "Große Einkaufszentren", "b": "Der Schwarzwald und die Alpen", "c": "Strände an der Nordsee"},
-                "answer_key": "b",
-                "explanation": "Laut Text sind Wanderwege 'im Schwarzwald und in den Alpen gut besucht'."
-            },
-            {
-                "id": 3,
-                "question": "Was schätzen die Wanderer besonders an den Bergtouren?",
-                "options": {"a": "Laute Musik", "b": "Frische Luft und Ruhe", "c": "Günstige Busreisen"},
-                "answer_key": "b",
-                "explanation": "Viele schätzen 'die frische Luft, die Bewegung und die Ruhe'."
-            },
-            {
-                "id": 4,
-                "question": "Womit planen viele Wanderer ihre Routen?",
-                "options": {"a": "Mit modernen Apps", "b": "Mit alten Reiseführern aus Papier", "c": "Gar nicht"},
-                "answer_key": "a",
-                "explanation": "Im Text steht: 'Moderne Apps helfen bei der Planung der besten Routen'."
-            },
-            {
-                "id": 5,
-                "question": "Was machen viele nach einer Wanderung?",
-                "options": {"a": "Sofort nach Hause fliegen", "b": "In Berghütten essen", "c": "Ein neues Zelt kaufen"},
-                "answer_key": "b",
-                "explanation": "Sie kehren in Berghütten ein und genießen regionale Spezialitäten."
-            }
-        ]
-    },
-    {
-        "title": "Deutschlandticket: Mit 49 Euro flexibel durch das ganze Land",
-        "text": "Seit der Einführung des Deutschlandtickets nutzen Millionen Menschen Busse und Regionalzüge viel häufiger. Für 49 Euro im Monat kann man im gesamten Nahverkehr flexibel fahren. Viele Pendler lassen das Auto in der Garage und fahren stressfrei mit dem Zug zur Arbeit. Auch für Wochenendausflüge in Nachbarstädte ist das Ticket sehr beliebt. Umweltverbände loben das Ticket, fordern aber mehr Züge und pünktlichere Verbindungen auf den Hauptstrecken.",
-        "items": [
-            {
-                "id": 1,
-                "question": "Wie viel kostet das Deutschlandticket pro Monat?",
-                "options": {"a": "49 Euro", "b": "100 Euro", "c": "Es ist kostenlos"},
-                "answer_key": "a",
-                "explanation": "Laut Text kostet das Ticket 49 Euro im Monat."
-            },
-            {
-                "id": 2,
-                "question": "In welchen Verkehrsmitteln gilt das Ticket?",
-                "options": {"a": "Nur in Flugzeugen", "b": "Im gesamten Nahverkehr mit Bus und Bahn", "c": "Nur in Taxis"},
-                "answer_key": "b",
-                "explanation": "Man kann im gesamten Nahverkehr (Busse und Regionalzüge) fahren."
-            },
-            {
-                "id": 3,
-                "question": "Was machen viele Pendler laut dem Artikel?",
-                "options": {"a": "Sie kaufen ein zweites Auto", "b": "Sie fahren mit dem Zug zur Arbeit", "c": "Sie arbeiten nur noch zu Hause"},
-                "answer_key": "b",
-                "explanation": "Viele Pendler lassen das Auto stehen und fahren mit dem Zug zur Arbeit."
-            },
-            {
-                "id": 4,
-                "question": "Wofür wird das Ticket am Wochenende genutzt?",
-                "options": {"a": "Für Ausflüge in Nachbarstädte", "b": "Für Flugreisen ins Ausland", "c": "Gar nicht"},
-                "answer_key": "a",
-                "explanation": "Auch für Wochenendausflüge in Nachbarstädte ist das Ticket sehr beliebt."
-            },
-            {
-                "id": 5,
-                "question": "Was fordern Umweltverbände für die Zukunft?",
-                "options": {"a": "Höhere Ticketpreise", "b": "Mehr Züge und pünktlichere Verbindungen", "c": "Weniger Bahnhöfe"},
-                "answer_key": "b",
-                "explanation": "Umweltverbände fordern mehr Züge und pünktlichere Verbindungen."
-            }
-        ]
-    },
-    {
-        "title": "Sprachen lernen im Tandem: Neue Freunde und lebendige Gespräche",
-        "text": "Immer mehr Sprachbegeisterte treffen sich in gemütlichen Cafés zum sogenannten Sprachtandem. Das Prinzip ist einfach: Zwei Personen mit unterschiedlichen Muttersprachen helfen sich gegenseitig beim Lernen. Eine Stunde spricht man Deutsch, die nächste Stunde zum Beispiel Spanisch oder Italienisch. Im Gegensatz zum traditionellen Unterricht lernt man hier besonders die Alltagssprache, Redewendungen und die Kultur des Partnerlandes kennen.",
-        "items": [
-            {
-                "id": 1,
-                "question": "Wo treffen sich viele Menschen zum Sprachtandem?",
-                "options": {"a": "In großen Bibliotheken", "b": "In gemütlichen Cafés", "c": "Im Reisebüro"},
-                "answer_key": "b",
-                "explanation": "Sie treffen sich in gemütlichen Cafés."
-            },
-            {
-                "id": 2,
-                "question": "Wie funktioniert das Sprachtandem?",
-                "options": {"a": "Ein Lehrer gibt Noten", "b": "Zwei Personen mit verschiedenen Muttersprachen helfen sich", "c": "Man lernt nur Grammatik"},
-                "answer_key": "b",
-                "explanation": "Zwei Personen mit unterschiedlichen Muttersprachen helfen sich gegenseitig."
-            },
-            {
-                "id": 3,
-                "question": "Wie wird die Zeit beim Tandem meistens aufgeteilt?",
-                "options": {"a": "Jede Sprache wird jeweils eine Stunde gesprochen", "b": "Nur Deutsch wird gesprochen", "c": "Man spricht nur 5 Minuten"},
-                "answer_key": "a",
-                "explanation": "Eine Stunde spricht man Deutsch, die nächste Stunde die andere Sprache."
-            },
-            {
-                "id": 4,
-                "question": "Was lernt man beim Tandem besonders gut?",
-                "options": {"a": "Schwere Prüfungsregeln", "b": "Alltagssprache und Redewendungen", "c": "Alte Gedichte"},
-                "answer_key": "b",
-                "explanation": "Man lernt besonders die Alltagssprache, Redewendungen und die Kultur kennen."
-            },
-            {
-                "id": 5,
-                "question": "Was ist der Vorteil gegenüber traditionellem Unterricht?",
-                "options": {"a": "Es ist teurer", "b": "Man lernt lebendiger und ungezwungener", "c": "Es gibt viele Hausaufgaben"},
-                "answer_key": "b",
-                "explanation": "Man lernt in entspannter Atmosphäre von Muttersprachlern."
-            }
-        ]
-    },
-    {
-        "title": "Flohmärkte am Sonntag: Schätze finden und die Umwelt schonen",
-        "text": "An sonnigen Sonntagen zieht es Tausende Menschen auf die großen Flohmärkte der Stadt. Zwischen alten Büchern, Schallplatten, Fahrrädern und Vintage-Kleidung kann man echte Schnäppchen entdecken. Viele Besucher schätzen die besondere Atmosphäre beim Stöbern und Handeln. Der Kauf gebrauchter Dinge schont nicht nur den Geldbeutel, sondern ist auch nachhaltig und spart wertvolle Ressourcen für unsere Umwelt.",
-        "items": [
-            {
-                "id": 1,
-                "question": "Wann besuchen viele Menschen den Flohmarkt?",
-                "options": {"a": "An sonnigen Sonntagen", "b": "Nur montags früh", "c": "Mitten in der Nacht"},
-                "answer_key": "a",
-                "explanation": "Laut Text zieht es die Menschen an sonnigen Sonntagen auf den Flohmarkt."
-            },
-            {
-                "id": 2,
-                "question": "Was kann man auf dem Flohmarkt kaufen?",
-                "options": {"a": "Nur neue Luxusautos", "b": "Bücher, Kleidung, Fahrräder und Schallplatten", "c": "Ausschließlich Lebensmittel"},
-                "answer_key": "b",
-                "explanation": "Man findet alte Bücher, Schallplatten, Fahrräder und Vintage-Kleidung."
-            },
-            {
-                "id": 3,
-                "question": "Was macht den Besuchern besonders viel Spaß?",
-                "options": {"a": "Das Stöbern und Handeln", "b": "Die laute Musik", "c": "Die hohen Preise"},
-                "answer_key": "a",
-                "explanation": "Viele Besucher schätzen die besondere Atmosphäre beim Stöbern und Handeln."
-            },
-            {
-                "id": 4,
-                "question": "Warum ist der Kauf gebrauchter Dinge gut für die Umwelt?",
-                "options": {"a": "Weil man weniger Abfall produziert und Ressourcen spart", "b": "Weil Flohmärkte im Wald liegen", "c": "Weil man kein Geld braucht"},
-                "answer_key": "a",
-                "explanation": "Es ist nachhaltig und spart wertvolle Ressourcen."
-            },
-            {
-                "id": 5,
-                "question": "Welchen Vorteil hat der Flohmarkt für das eigene Budget?",
-                "options": {"a": "Er kostet viel Eintritt", "b": "Man schont den Geldbeutel durch günstige Preise", "c": "Man muss Schulden machen"},
-                "answer_key": "b",
-                "explanation": "Der Kauf gebrauchter Dinge schont den Geldbeutel."
+                "explanation": "Laut Umfrage kochen 'über 60 Prozent' mindestens viermal pro Woche frisch."
             }
         ]
     }
@@ -720,188 +657,97 @@ POOL_LESEN_TEIL1: List[Dict[str, Any]] = [
 
 POOL_LESEN_TEIL2: List[Dict[str, Any]] = [
     {
-        "title": "Kaufhaus-Wegweiser (City-Center)",
+        "title": "Kaufhaus Alexa Wegweiser",
         "directory": [
-            {"floor": "3. Stock", "departments": "Restaurant, Café, Kundentoiletten, Reisebüro, Event-Lounge"},
-            {"floor": "2. Stock", "departments": "Kinderbekleidung, Spielzeug, Sportkleidung, Outdoorschuhe, Fahrräder"},
-            {"floor": "1. Stock", "departments": "Damen- und Herrenmode, Schuhe, Lederjacken, Koffer und Taschen"},
-            {"floor": "Erdgeschoss", "departments": "Parfümerie, Uhren, Schmuck, Information, Zeitschriften, Foto-Pass"},
-            {"floor": "Untergeschoss", "departments": "Supermarkt, Bäckerei, Haushaltswaren, Elektrogeräte, Fernseher"}
+            {"floor": "4. Stock", "departments": "Bücher, Geschenke, Spielsachen, Freizeittaschen, Koffer, Brieftaschen und Geldbeutel, Café, Friseur- und Nagelstudio, Kunden-WC, Telefon"},
+            {"floor": "3. Stock", "departments": "Handys, Telefone, MP3-Player, CD-Player, DVD-Player, Radios, Fernseher, Computer, Notebooks, Tablets, Software, Drucker, CDs, DVDs, Videospiele, Sportkleidung, Arbeitskleidung"},
+            {"floor": "2. Stock", "departments": "Herrenmode, Nachtwäsche für ihn, Unterwäsche für ihn, Möbel für Wohnzimmer, Bad und Küche, Teppiche, Lampen, Gardinen, Kissen, Decken, Stoffe und Dekoartikel, Handtücher"},
+            {"floor": "1. Stock", "departments": "Damenmode, Nachtwäsche für sie, Unterwäsche für sie, Mode für Kinder und Jugendliche, Babybekleidung, Kinderwagen, Schuhe, Geschirr und Gläser, Besteck, Töpfe und Pfannen, Grills"},
+            {"floor": "Erdgeschoss (EG)", "departments": "Information, Uhren, Schmuck, Parfüm, Kosmetik, Schreibwaren, Glückwunschkarten, Kalender, Schultaschen, Reiseführer, Souvenirs, Schuhwerkstatt, Schlüsseldienst, Blumenladen"},
+            {"floor": "Untergeschoss (UG)", "departments": "Bäcker, Supermarkt, Putz- und Waschmittel, Fotoservice, Tabak, Zeitschriften und Zeitungen, Theater- und Konzertkarten, Reisebüro, Geldautomat, Kunden-WC"}
         ],
         "items": [
             {
                 "id": 6,
-                "question": "Sie möchten eine warme Winterjacke für Ihre Tochter kaufen.",
-                "options": {"a": "1. Stock", "b": "2. Stock", "c": "Anderes Stockwerk"},
-                "answer_key": "b",
-                "explanation": "Kinderbekleidung befindet sich im 2. Stock."
-            },
-            {
-                "id": 7,
-                "question": "Sie haben Hunger und möchten zu Mittag essen.",
-                "options": {"a": "3. Stock", "b": "Erdgeschoss", "c": "1. Stock"},
-                "answer_key": "a",
-                "explanation": "Restaurant und Café befinden sich im 3. Stock."
-            },
-            {
-                "id": 8,
-                "question": "Sie suchen eine Kaffeemaschine für Ihre neue Küche.",
-                "options": {"a": "Untergeschoss", "b": "1. Stock", "c": "2. Stock"},
-                "answer_key": "a",
-                "explanation": "Elektrogeräte und Haushaltswaren sind im Untergeschoss."
-            },
-            {
-                "id": 9,
-                "question": "Sie möchten ein Geburtstagsgeschenk: eine schöne Damenuhr.",
-                "options": {"a": "3. Stock", "b": "Erdgeschoss", "c": "Untergeschoss"},
-                "answer_key": "b",
-                "explanation": "Uhren und Schmuck sind im Erdgeschoss."
-            },
-            {
-                "id": 10,
-                "question": "Sie suchen einen neuen Lederkoffer für Ihren Urlaub.",
+                "question": "Sie möchten eine neue Bratpfanne, Töpfe und schöne Weingläser für die Küche kaufen.",
                 "options": {"a": "1. Stock", "b": "2. Stock", "c": "Anderes Stockwerk"},
                 "answer_key": "a",
-                "explanation": "Koffer, Taschen und Lederwaren befinden sich im 1. Stock."
+                "explanation": "Geschirr, Gläser, Besteck, Töpfe und Pfannen befinden sich im 1. Stock."
+            },
+            {
+                "id": 7,
+                "question": "Sie suchen ein neues Smartphone, ein Tablet und passende Videospiele.",
+                "options": {"a": "3. Stock", "b": "Erdgeschoss (EG)", "c": "4. Stock"},
+                "answer_key": "a",
+                "explanation": "Handys, Tablets, Computer und Videospiele befinden sich im 3. Stock."
+            },
+            {
+                "id": 8,
+                "question": "Sie möchten vor Ihrer Reise einen großen Koffer und einen spannenden Roman kaufen.",
+                "options": {"a": "1. Stock", "b": "4. Stock", "c": "Anderes Stockwerk"},
+                "answer_key": "b",
+                "explanation": "Bücher, Geschenke, Freizeittaschen und Koffer befinden sich im 4. Stock."
+            },
+            {
+                "id": 9,
+                "question": "Sie suchen einen neuen Esstisch, Küchenlampen und kuschelige Kissen für Ihre Wohnung.",
+                "options": {"a": "2. Stock", "b": "1. Stock", "c": "Untergeschoss (UG)"},
+                "answer_key": "a",
+                "explanation": "Möbel für Wohnzimmer und Küche, Lampen und Kissen sind im 2. Stock."
+            },
+            {
+                "id": 10,
+                "question": "Sie möchten sich im Friseurstudio die Haare schneiden lassen und danach im Café entspannen.",
+                "options": {"a": "Erdgeschoss (EG)", "b": "3. Stock", "c": "4. Stock"},
+                "answer_key": "c",
+                "explanation": "Das Café sowie das Friseur- und Nagelstudio befinden sich im 4. Stock."
             }
         ]
     },
     {
-        "title": "Einkaufszentrum 'Alster-Passage' Wegweiser",
+        "title": "Einkaufszentrum 'City-Galerie' Wegweiser",
         "directory": [
-            {"floor": "Obergeschoss 2", "departments": "Kino, Fitnessstudio, Bowlingbahn, Eisdiele, Sushi-Bar"},
-            {"floor": "Obergeschoss 1", "departments": "Buchhandlung, Schreibwaren, Musikinstrumente, Computer & Laptops, Handyzubehör"},
-            {"floor": "Erdgeschoss", "departments": "Damenbekleidung, Herrenmode, Schuhe, Juwelier, Optiker & Brillen"},
-            {"floor": "Untergeschoss", "departments": "Apotheke, Drogeriemarkt, Blumengeschäft, Schlüsseldienst & Schuhreparatur"}
+            {"floor": "Obergeschoss 3", "departments": "Kino 'Astor', Fitnessclub, Bowling-Center, Sky-Restaurant, Panorama-Café, Kunden-WC"},
+            {"floor": "Obergeschoss 2", "departments": "Computer & Laptops, Apple Store, Spielekonsolen, Sportartikel, Outdoorbekleidung, Fahrräder & E-Scooter"},
+            {"floor": "Obergeschoss 1", "departments": "Herren- und Damenmode, Schuhe, Lederjacken, Handtaschen, Koffer, Reisebüro, Spielwarengeschäft"},
+            {"floor": "Erdgeschoss (EG)", "departments": "Information, Parfümerie, Juwelier & Uhren, Optiker & Sonnenbrillen, Buchhandlung, Blumenshop"},
+            {"floor": "Untergeschoss (UG)", "departments": "Apotheke, Drogeriemarkt, Bio-Supermarkt, Bäckerei, Schlüsseldienst, Geldautomaten, Parkhaus"}
         ],
         "items": [
             {
                 "id": 6,
-                "question": "Sie brauchen dringend Kopfschmerztabletten und Duschgel.",
-                "options": {"a": "Untergeschoss", "b": "Obergeschoss 1", "c": "Anderes Stockwerk"},
+                "question": "Sie brauchen dringend Kopfschmerztabletten und Sonnencreme vor dem Ausflug.",
+                "options": {"a": "Untergeschoss (UG)", "b": "Obergeschoss 1", "c": "Anderes Stockwerk"},
                 "answer_key": "a",
-                "explanation": "Apotheke und Drogeriemarkt befinden sich im Untergeschoss."
+                "explanation": "Apotheke und Drogeriemarkt befinden sich im Untergeschoss (UG)."
             },
             {
                 "id": 7,
-                "question": "Sie möchten am Abend mit Freunden einen Film ansehen.",
-                "options": {"a": "Obergeschoss 2", "b": "Erdgeschoss", "c": "Untergeschoss"},
+                "question": "Sie möchten am Abend mit Freunden den neuesten Kinofilm anschauen.",
+                "options": {"a": "Obergeschoss 3", "b": "Erdgeschoss (EG)", "c": "Obergeschoss 2"},
                 "answer_key": "a",
-                "explanation": "Das Kino befindet sich im Obergeschoss 2."
+                "explanation": "Das Kino 'Astor' befindet sich im Obergeschoss 3."
             },
             {
                 "id": 8,
-                "question": "Sie suchen ein neues Ladekabel für Ihr Smartphone.",
-                "options": {"a": "Erdgeschoss", "b": "Obergeschoss 1", "c": "Obergeschoss 2"},
+                "question": "Sie suchen ein neues Ladekabel für Ihr Notebook und eine Sportjacke.",
+                "options": {"a": "Erdgeschoss (EG)", "b": "Obergeschoss 2", "c": "Obergeschoss 1"},
                 "answer_key": "b",
-                "explanation": "Handyzubehör und Computer sind im Obergeschoss 1."
+                "explanation": "Computer, Apple Store und Sportartikel befinden sich im Obergeschoss 2."
             },
             {
                 "id": 9,
-                "question": "Sie brauchen eine neue Sonnenbrille für den Sommer.",
-                "options": {"a": "Obergeschoss 2", "b": "Erdgeschoss", "c": "Anderes Stockwerk"},
+                "question": "Sie möchten Ihrer Freundin eine neue Halskette oder Ohrringe schenken.",
+                "options": {"a": "Obergeschoss 2", "b": "Erdgeschoss (EG)", "c": "Anderes Stockwerk"},
                 "answer_key": "b",
-                "explanation": "Optiker & Brillen befinden sich im Erdgeschoss."
+                "explanation": "Juwelier & Uhren sowie Parfümerie befinden sich im Erdgeschoss (EG)."
             },
             {
                 "id": 10,
-                "question": "Sie möchten einen Blumenstrauß zum Geburtstag verschenken.",
-                "options": {"a": "Untergeschoss", "b": "Obergeschoss 1", "c": "Obergeschoss 2"},
-                "answer_key": "a",
-                "explanation": "Das Blumengeschäft befindet sich im Untergeschoss."
-            }
-        ]
-    },
-    {
-        "title": "Einkaufszentrum am Hauptbahnhof",
-        "directory": [
-            {"floor": "3. Etage", "departments": "Zahnarztpraxis, Physiotherapie, Reisezentrum DB, Fundbüro"},
-            {"floor": "2. Etage", "departments": "Sportartikel, Wanderausrüstung, Fahrräder, Campingbedarf"},
-            {"floor": "1. Etage", "departments": "Elektronikfachmarkt, Handyreparatur, Kameras, Videospiele"},
-            {"floor": "Erdgeschoss", "departments": "Bäckerei, Zeitschriften & Zeitungen, Café, Geldautomat"},
-            {"floor": "Untergeschoss", "departments": "Schließfächer, Apotheke, Drogerie, Bio-Supermarkt"}
-        ],
-        "items": [
-            {
-                "id": 6,
-                "question": "Sie möchten Ihr Gepäck für ein paar Stunden sicher einschließen.",
-                "options": {"a": "Untergeschoss", "b": "1. Etage", "c": "3. Etage"},
-                "answer_key": "a",
-                "explanation": "Schließfächer befinden sich im Untergeschoss."
-            },
-            {
-                "id": 7,
-                "question": "Sie brauchen ein Zugticket nach Berlin und Beratung.",
-                "options": {"a": "3. Etage", "b": "Erdgeschoss", "c": "2. Etage"},
-                "answer_key": "a",
-                "explanation": "Das DB Reisezentrum befindet sich in der 3. Etage."
-            },
-            {
-                "id": 8,
-                "question": "Das Display Ihres Smartphones ist kaputt und muss repariert werden.",
-                "options": {"a": "Erdgeschoss", "b": "1. Etage", "c": "Anderes Stockwerk"},
+                "question": "Sie suchen elegante Lederschuhe und einen Rollkoffer für Ihre Geschäftsreise.",
+                "options": {"a": "Untergeschoss (UG)", "b": "Obergeschoss 1", "c": "Obergeschoss 3"},
                 "answer_key": "b",
-                "explanation": "Die Handyreparatur befindet sich in der 1. Etage."
-            },
-            {
-                "id": 9,
-                "question": "Sie möchten vor der Zugfahrt einen frischen Kaffee und Brezeln kaufen.",
-                "options": {"a": "2. Etage", "b": "Erdgeschoss", "c": "3. Etage"},
-                "answer_key": "b",
-                "explanation": "Bäckerei und Café sind im Erdgeschoss."
-            },
-            {
-                "id": 10,
-                "question": "Sie suchen ein neues Zelt für einen Wochenendausflug in die Natur.",
-                "options": {"a": "2. Etage", "b": "Untergeschoss", "c": "Anderes Stockwerk"},
-                "answer_key": "a",
-                "explanation": "Wanderausrüstung und Campingbedarf befinden sich in der 2. Etage."
-            }
-        ]
-    },
-    {
-        "title": "Bürger- und Kulturzentrum am Marktplatz",
-        "directory": [
-            {"floor": "3. Obergeschoss", "departments": "Stadtbibliothek, Lesesaal, Kostenloses WLAN, Hörbuchausleihe"},
-            {"floor": "2. Obergeschoss", "departments": "Volkshochschule (VHS), Sprachkurse, Computerräume, Beratungsbüro"},
-            {"floor": "1. Obergeschoss", "departments": "Bürgeramt, Passstelle, Wohnsitzanmeldung, Führerscheinstelle"},
-            {"floor": "Erdgeschoss", "departments": "Theaterkasse, Tourist-Information, Café am Markt, Stadtplanverkauf"}
-        ],
-        "items": [
-            {
-                "id": 6,
-                "question": "Sie sind neu in die Stadt gezogen und müssen Ihren Wohnsitz anmelden.",
-                "options": {"a": "1. Obergeschoss", "b": "3. Obergeschoss", "c": "Anderes Stockwerk"},
-                "answer_key": "a",
-                "explanation": "Bürgeramt und Wohnsitzanmeldung befinden sich im 1. Obergeschoss."
-            },
-            {
-                "id": 7,
-                "question": "Sie möchten sich für einen Abend-Deutschkurs anmelden.",
-                "options": {"a": "Erdgeschoss", "b": "2. Obergeschoss", "c": "3. Obergeschoss"},
-                "answer_key": "b",
-                "explanation": "Die Volkshochschule mit Sprachkursen befindet sich im 2. Obergeschoss."
-            },
-            {
-                "id": 8,
-                "question": "Sie möchten Tickets für das Konzert am Samstagabend kaufen.",
-                "options": {"a": "Erdgeschoss", "b": "1. Obergeschoss", "c": "2. Obergeschoss"},
-                "answer_key": "a",
-                "explanation": "Die Theaterkasse befindet sich im Erdgeschoss."
-            },
-            {
-                "id": 9,
-                "question": "Sie suchen einen ruhigen Platz, um ein Buch zu lesen und im Internet zu recherchieren.",
-                "options": {"a": "1. Obergeschoss", "b": "3. Obergeschoss", "c": "Anderes Stockwerk"},
-                "answer_key": "b",
-                "explanation": "Stadtbibliothek und Lesesaal befinden sich im 3. Obergeschoss."
-            },
-            {
-                "id": 10,
-                "question": "Sie brauchen einen neuen Reisepass für Ihren Urlaub.",
-                "options": {"a": "1. Obergeschoss", "b": "2. Obergeschoss", "c": "Erdgeschoss"},
-                "answer_key": "a",
-                "explanation": "Das Bürgeramt mit Passstelle ist im 1. Obergeschoss."
+                "explanation": "Schuhe, Handtaschen und Koffer befinden sich im Obergeschoss 1."
             }
         ]
     }
@@ -909,131 +755,128 @@ POOL_LESEN_TEIL2: List[Dict[str, Any]] = [
 
 POOL_LESEN_TEIL3: List[Dict[str, Any]] = [
     {
-        "sender": "Anna Schneider",
-        "recipient": "Markus",
-        "subject": "Neuigkeiten aus meiner neuen Wohnung!",
-        "text": "Lieber Markus,\nendlich habe ich etwas Zeit zum Schreiben. Der Umzug letzte Woche war ganz schön anstrengend, aber meine Freunde haben mir super geholfen. Meine neue Wohnung in Freiburg ist wirklich toll! Sie hat zwei helle Zimmer, einen kleinen Balkon und liegt direkt neben einem schönen Park. Am nächsten Samstag mache ich eine kleine Einweihungsparty ab 18 Uhr. Ich grille auf dem Balkon und es gibt leckere Salate. Hast du Zeit und Lust zu kommen? Du kannst auch gerne bei mir auf dem Sofa übernachten, wenn es spät wird.\nHerzliche Grüße,\nAnna",
+        "sender": "Gülcan",
+        "recipient": "Sonja",
+        "subject": "Mein neues Studentenleben in Hamburg",
+        "text": "Liebe Sonja,\n\nich bin jetzt schon vier Wochen in Hamburg und bin noch dabei, mich hier einzuleben. An der Universität ist vieles ganz anders organisiert als zu Hause. Und auch im täglichen Leben musste ich erst einmal lernen, wie einige Dinge hier gemacht werden. Zum Beispiel, wie ich ein Zimmer finde und wo ich was einkaufen kann.\n\nIn der ersten Woche haben ein paar Studenten eine Willkommensführung für uns ausländische Studierende gemacht. Sie haben uns die Uni gezeigt: die Bibliothek, die Cafeteria und die Multimedia-Räume. Hamburg habe ich dann alleine mit dem Stadtplan kennengelernt.\n\nIch wohne mit drei anderen Studenten aus Italien, Japan und Mexiko zusammen. Immer freitags kocht einer von uns etwas aus seinem Land und wir essen zusammen, obwohl wir nur eine winzig kleine Küche haben! Ich finde das super, du weißt ja, wie gerne ich koche!\n\nWir sprechen in der Wohnung nicht nur Deutsch, sondern oft auch Englisch miteinander. Manchmal ist das einfacher, aber mich stört das ein bisschen. Ich möchte dieses Jahr möglichst viel Deutsch lernen. Und weißt du, was mir am meisten Spaß macht? Der Literaturkurs. Der Dozent, Herr Hahn, ist ein total witziger Typ. Den müsstest du mal erleben. :-)\n\nIch freue mich auf deinen Besuch im März. Dann zeige ich dir die Stadt und an einem Nachmittag fahren wir an die Ostsee. Da ist es total schön. Du kannst dann bei Mario schlafen. Das ist der Italiener, der neben mir wohnt. Er ist einverstanden, denn er fährt in den Ferien nach Hause, nach Genua.\n\nSchreib mir bald!\nBis dann\nGülcan",
         "items": [
             {
                 "id": 11,
-                "question": "Wie fand Anna ihren Umzug?",
-                "options": {"a": "Sehr einfach", "b": "Ziemlich anstrengend", "c": "Langweilig"},
+                "question": "Gülcan...",
+                "options": {
+                    "a": "wohnt erst seit einer Woche in Hamburg.",
+                    "b": "lebt seit vier Wochen in Hamburg.",
+                    "c": "studiert bereits seit einem Jahr an der Uni."
+                },
                 "answer_key": "b",
-                "explanation": "Anna schreibt: 'Der Umzug letzte Woche war ganz schön anstrengend'."
+                "explanation": "Gülcan schreibt im ersten Satz: 'ich bin jetzt schon vier Wochen in Hamburg'."
+            },
+            {
+                "id": 12,
+                "question": "In ihrer ersten Woche in Hamburg...",
+                "options": {
+                    "a": "hat sie an einer Willkommensführung an der Uni teilgenommen.",
+                    "b": "ist sie direkt an die Ostsee gefahren.",
+                    "c": "hat sie mit Sonja eine Wohnung gesucht."
+                },
+                "answer_key": "a",
+                "explanation": "Sie schreibt: 'In der ersten Woche haben ein paar Studenten eine Willkommensführung für uns ausländische Studierende gemacht'."
+            },
+            {
+                "id": 13,
+                "question": "Was gefällt Gülcan an ihrer WG besonders gut?",
+                "options": {
+                    "a": "Dass die Küche riesengroß und modern ist.",
+                    "b": "Dass alle Mitbewohner nur Deutsch sprechen.",
+                    "c": "Dass freitags gemeinsam internationale Gerichte gekocht werden."
+                },
+                "answer_key": "c",
+                "explanation": "Sie schreibt: 'Immer freitags kocht einer von uns etwas aus seinem Land und wir essen zusammen ... Ich finde das super'."
+            },
+            {
+                "id": 14,
+                "question": "Was stört Gülcan im Zusammenleben ein bisschen?",
+                "options": {
+                    "a": "Dass in der Wohnung oft Englisch statt Deutsch gesprochen wird.",
+                    "b": "Dass die Mitbewohner nie sauber machen.",
+                    "c": "Dass Herr Hahn zu strenge Noten vergibt."
+                },
+                "answer_key": "a",
+                "explanation": "Sie schreibt: 'Wir sprechen ... oft auch Englisch miteinander ... mich stört das ein bisschen'."
+            },
+            {
+                "id": 15,
+                "question": "Wenn Sonja im März zu Besuch kommt,...",
+                "options": {
+                    "a": "müssen sie ein teures Hotelzimmer buchen.",
+                    "b": "kann Sonja im Zimmer des Italieners Mario schlafen.",
+                    "c": "fahren sie sofort gemeinsam nach Genua."
+                },
+                "answer_key": "b",
+                "explanation": "Gülcan schreibt: 'Du kannst dann bei Mario schlafen ... Er fährt in den Ferien nach Hause, nach Genua'."
+            }
+        ]
+    },
+    {
+        "sender": "Anna Schneider",
+        "recipient": "Markus",
+        "subject": "Neuigkeiten aus meiner neuen Wohnung in Freiburg!",
+        "text": "Lieber Markus,\n\nendlich habe ich etwas Zeit zum Schreiben. Der Umzug letzte Woche war ganz schön anstrengend, aber meine Freunde haben mir super geholfen. Alle Kisten sind inzwischen ausgepackt und die Möbel stehen an ihrem Platz.\n\nMeine neue Wohnung in Freiburg ist wirklich toll! Sie hat zwei helle Zimmer, einen kleinen Balkon und liegt direkt neben einem wunderschönen Stadtpark. Zur Universität brauche ich mit dem Fahrrad nur zehn Minuten.\n\nAm nächsten Samstag mache ich eine kleine Einweihungsparty ab 18 Uhr. Ich grille auf dem Balkon und es gibt leckere hausgemachte Salate und Getränke. Ein paar Studienkollegen und Nachbarn kommen auch vorbei.\n\nHast du Zeit und Lust zu kommen? Du kannst auch gerne bei mir auf dem gemütlichen Schlafsofa im Wohnzimmer übernachten, wenn es spät wird. Sag mir bitte bis Donnerstag kurz Bescheid, damit ich genug einkaufen kann!\n\nHerzliche Grüße,\nAnna",
+        "items": [
+            {
+                "id": 11,
+                "question": "Wie beurteilt Anna ihren Umzug?",
+                "options": {
+                    "a": "Als sehr entspannt und mühelos",
+                    "b": "Als ziemlich anstrengend, aber mit toller Hilfe",
+                    "c": "Als viel zu teuer"
+                },
+                "answer_key": "b",
+                "explanation": "Anna schreibt: 'Der Umzug letzte Woche war ganz schön anstrengend, aber meine Freunde haben mir super geholfen'."
             },
             {
                 "id": 12,
                 "question": "Was gefällt Anna an ihrer neuen Wohnung?",
-                "options": {"a": "Sie hat einen Garten", "b": "Sie ist sehr groß mit 4 Zimmern", "c": "Sie hat zwei helle Zimmer und einen Balkon"},
-                "answer_key": "c",
-                "explanation": "Laut Text hat die Wohnung 'zwei helle Zimmer' und einen 'kleinen Balkon'."
+                "options": {
+                    "a": "Sie liegt direkt neben der Autobahn",
+                    "b": "Sie hat zwei helle Zimmer, einen Balkon und liegt am Park",
+                    "c": "Sie hat einen riesigen Swimmingpool"
+                },
+                "answer_key": "b",
+                "explanation": "Laut Text hat die Wohnung zwei helle Zimmer, einen Balkon und liegt neben einem Stadtpark."
             },
             {
                 "id": 13,
-                "question": "Was plant Anna für nächsten Samstag?",
-                "options": {"a": "Eine Einweihungsparty mit Grillen", "b": "Einen Ausflug ins Museum", "c": "Eine Reise nach Freiburg"},
+                "question": "Was plant Anna für kommenden Samstag?",
+                "options": {
+                    "a": "Eine Einweihungsparty mit Grillen auf dem Balkon",
+                    "b": "Einen großen Ausflug ins Museum",
+                    "c": "Eine Zugreise nach Berlin"
+                },
                 "answer_key": "a",
-                "explanation": "Sie plant eine Einweihungsparty ab 18 Uhr und will auf dem Balkon grillen."
+                "explanation": "Sie plant eine Einweihungsparty ab 18 Uhr mit Grillen auf dem Balkon."
             },
             {
                 "id": 14,
-                "question": "Wo liegt die neue Wohnung von Anna?",
-                "options": {"a": "Am Bahnhof", "b": "Direkt neben einem Park", "c": "Im Industriegebiet"},
+                "question": "Wie lange braucht Anna mit dem Rad zur Uni?",
+                "options": {
+                    "a": "Über eine Stunde",
+                    "b": "Nur zehn Minuten",
+                    "c": "Sie muss den Bus nehmen"
+                },
                 "answer_key": "b",
-                "explanation": "Anna schreibt, die Wohnung 'liegt direkt neben einem schönen Park'."
+                "explanation": "Im Text steht: 'Zur Universität brauche ich mit dem Fahrrad nur zehn Minuten'."
             },
             {
                 "id": 15,
-                "question": "Was bietet Anna Markus für die Nacht an?",
-                "options": {"a": "Ein Hotelzimmer zu buchen", "b": "Auf dem Sofa zu schlafen", "c": "Den letzten Zug zu nehmen"},
+                "question": "Was bietet Anna Markus für die Übernachtung an?",
+                "options": {
+                    "a": "Ein Hotelzimmer in der Innenstadt",
+                    "b": "Ein Schlafsofa im Wohnzimmer",
+                    "c": "Ein Zelt im Park"
+                },
                 "answer_key": "b",
-                "explanation": "Sie schreibt: 'Du kannst auch gerne bei mir auf dem Sofa übernachten'."
-            }
-        ]
-    },
-    {
-        "sender": "Tobias Weber",
-        "recipient": "Sarah",
-        "subject": "Sommerfest am Badesee am Samstag!",
-        "text": "Hallo Sarah,\nwie geht es dir? Da das Wetter am Samstag fantastisch werden soll (über 28 Grad!), planen wir ab 14 Uhr ein großes Sommerfest am Badesee. Wir bringen Decken, Musik und einen Volleyball mit. Jeder bringt etwas zum Essen mit – ich mache meinen berühmten Nudelsalat und backe Muffins. Bringst du vielleicht ein paar kalte Getränke oder Obst mit? Vergiss deine Badesachen und Sonnencreme nicht! Wir treffen uns direkt am Parkplatz vor dem Kiosk.\nBis Samstag,\nTobias",
-        "items": [
-            {
-                "id": 11,
-                "question": "Warum organisiert Tobias das Fest am Samstag?",
-                "options": {"a": "Weil es regnen soll", "b": "Weil das Wetter warm und sonnig wird", "c": "Weil er Geburtstag hat"},
-                "answer_key": "b",
-                "explanation": "Tobias schreibt, dass das Wetter fantastisch wird mit über 28 Grad."
-            },
-            {
-                "id": 12,
-                "question": "Wann beginnt das Fest am Badesee?",
-                "options": {"a": "Um 10 Uhr morgens", "b": "Um 14 Uhr", "c": "Erst um 20 Uhr"},
-                "answer_key": "b",
-                "explanation": "Im Text steht: 'planen wir ab 14 Uhr ein großes Sommerfest'."
-            },
-            {
-                "id": 13,
-                "question": "Was bringt Tobias zum Essen mit?",
-                "options": {"a": "Nudelsalat und Muffins", "b": "Nur belegte Brötchen", "c": "Gekaufte Pizza"},
-                "answer_key": "a",
-                "explanation": "Tobias bringt seinen 'berühmten Nudelsalat' und backt 'Muffins'."
-            },
-            {
-                "id": 14,
-                "question": "Worum bittet Tobias Sarah?",
-                "options": {"a": "Einen Grill zu kaufen", "b": "Kalte Getränke oder Obst mitzubringen", "c": "Ihn mit dem Auto abzuholen"},
-                "answer_key": "b",
-                "explanation": "Er fragt: 'Bringst du vielleicht ein paar kalte Getränke oder Obst mit?'"
-            },
-            {
-                "id": 15,
-                "question": "Wo ist der Treffpunkt am Samstag?",
-                "options": {"a": "Am Bahnhof", "b": "Am Parkplatz vor dem Kiosk", "c": "Bei Tobias zu Hause"},
-                "answer_key": "b",
-                "explanation": "Im Text steht: 'Wir treffen uns direkt am Parkplatz vor dem Kiosk'."
-            }
-        ]
-    },
-    {
-        "sender": "Maximilian Braun",
-        "recipient": "Julia",
-        "subject": "Wochenendausflug in den Harz",
-        "text": "Liebe Julia,\nich habe tolle Neuigkeiten: Für unseren Ausflug in den Harz am kommenden Wochenende habe ich schon eine gemütliche Ferienhütte reserviert. Wir fahren am Samstagmorgen um 8:15 Uhr mit dem Regionalzug ab Hauptbahnhof. Bitte denk an feste Wanderschuhe und eine Regenjacke, da das Wetter in den Bergen schnell wechseln kann. Das Bahnticket habe ich bereits für uns beide online gekauft. Melde dich kurz, ob die Uhrzeit für dich passt!\nViele Grüße,\nMaximilian",
-        "items": [
-            {
-                "id": 11,
-                "question": "Was hat Maximilian bereits für den Ausflug organisiert?",
-                "options": {"a": "Ein Luxushotel gebucht", "b": "Eine Ferienhütte reserviert und Tickets gekauft", "c": "Ein Auto gemietet"},
-                "answer_key": "b",
-                "explanation": "Er hat die Ferienhütte reserviert und das Bahnticket gekauft."
-            },
-            {
-                "id": 12,
-                "question": "Wann fährt der Zug am Samstag ab?",
-                "options": {"a": "Um 8:15 Uhr", "b": "Um 12:00 Uhr", "c": "Erst am Nachmittag"},
-                "answer_key": "a",
-                "explanation": "Im Text steht: 'am Samstagmorgen um 8:15 Uhr'."
-            },
-            {
-                "id": 13,
-                "question": "Welche Kleidung empfiehlt Maximilian Julia?",
-                "options": {"a": "Badekleidung", "b": "Feste Wanderschuhe und eine Regenjacke", "c": "Nur ein Sommerkleid"},
-                "answer_key": "b",
-                "explanation": "Er bittet sie, an feste Wanderschuhe und eine Regenjacke zu denken."
-            },
-            {
-                "id": 14,
-                "question": "Wie reisen Maximilian und Julia in den Harz?",
-                "options": {"a": "Mit dem Flugzeug", "b": "Mit dem Regionalzug ab Hauptbahnhof", "c": "Mit dem Fahrrad"},
-                "answer_key": "b",
-                "explanation": "Sie fahren mit dem Regionalzug ab Hauptbahnhof."
-            },
-            {
-                "id": 15,
-                "question": "Worum bittet Maximilian Julia am Ende?",
-                "options": {"a": "Um eine kurze Rückmeldung zur Abfahrtszeit", "b": "Ihm Geld zu überweisen", "c": "Essen für alle zu kochen"},
-                "answer_key": "a",
-                "explanation": "Er schreibt: 'Melde dich kurz, ob die Uhrzeit für dich passt!'."
+                "explanation": "Sie schreibt: 'Du kannst auch gerne bei mir auf dem gemütlichen Schlafsofa im Wohnzimmer übernachten'."
             }
         ]
     }
@@ -1041,122 +884,130 @@ POOL_LESEN_TEIL3: List[Dict[str, Any]] = [
 
 POOL_LESEN_TEIL4: List[Dict[str, Any]] = [
     {
+        "title": "Lokale und Restaurants im Internet",
         "ads": [
-            {"id": "a", "title": "Gitarrenunterricht für Anfänger", "text": "Lerne deine Lieblingssongs! Erfahrener Musiker gibt Einzelunterricht. Flexible Termine abends. Tel: 0171-234567"},
-            {"id": "b", "title": "Schöne 2-Zimmer-Wohnung im Zentrum", "text": "Helle 60 qm Wohnung mit Balkon, voll möbliert, ab sofort frei. Warmmiete 750 Euro. info@wohnen-city.de"},
-            {"id": "c", "title": "Babysitterin sucht Familie", "text": "Pädagogik-Studentin (22 Jahre) hat nachmittags und am Wochenende Zeit für Kinderbetreuung. Tel: 0152-987654"},
-            {"id": "d", "title": "Citybike 28 Zoll zu verkaufen", "text": "Gebrauchtes, sehr gepflegtes Damenfahrrad mit 7-Gang-Schaltung und Korb. Preis: 95 Euro VB. Tel: 0160-112233"},
-            {"id": "e", "title": "Fitnessstudio 'Bodyfit' Spezialangebot", "text": "Jetzt anmelden und 3 Monate gratis trainieren! Großer Saunabereich und moderne Geräte. www.bodyfit-club.de"},
-            {"id": "f", "title": "Italienischer Kochkurs am Samstag", "text": "Lerne echte Pasta und Pizza selbst machen! 4-stündiger Workshop in kleiner Gruppe. Anmeldung unter: kochschule-roma.de"}
+            {
+                "id": "a",
+                "title": "www.park-cafe.de",
+                "text": "Selbstgemachte Torten, Kuchen und italienisches Eis. Große Sonnenterrasse mit Spielplatz. Alles auch zum Mitnehmen! Täglich außer montags von 14 bis 19 Uhr geöffnet. Bergstraße 7, 89312 Günzburg, Tel. 08221 36152"
+            },
+            {
+                "id": "b",
+                "title": "www.feine-speisen.de",
+                "text": "Egal, wo Sie feiern wollen, wir liefern für Ihre Hochzeit oder andere private Feiern bestes Essen. Z. B. Hochzeitsmenü ab 30 € p. P.; bayerisches Buffet 20,50 € p. P. Wir bieten außerdem Tische und Stühle, Dekoration, Servicepersonal und Kinderbetreuung an."
+            },
+            {
+                "id": "c",
+                "title": "www.weinhaus-walter.de",
+                "text": "Internationale Spezialitäten. Beste Weine. Jetzt neu: Jeden Tag anderes 3-Gänge-Menü mit Getränk ab 20 € pro Person. Im Sommer auch in unserem ruhigen Garten. Sie finden uns direkt hinter dem Rathaus. Schöner Raum für kleine Feiern."
+            },
+            {
+                "id": "d",
+                "title": "www.cafe-sand.de",
+                "text": "Urlaub in der Stadtmitte – direkt am Fluss, täglich ab 10.00 Uhr geöffnet. Jeden Samstag und Sonntag gibt es das stadtbekannte große Frühstück. Ab Mai jeden Sonnabend Party mit Live-Musik, ab 22 Uhr. Tischreservierung Tel. 785 43 65."
+            },
+            {
+                "id": "e",
+                "title": "www.towabu.de",
+                "text": "Spiel + Spaß bei Towabu. Auf über 2500 qm auch bei schlechtem Wetter spielen und toben! Tolle Geburtstagspartys mit Super-Programm. Getränke inklusive. Täglich 10 bis 20 Uhr. Auch in den Sommerferien geöffnet."
+            },
+            {
+                "id": "f",
+                "title": "www.hansen-im-moor.de",
+                "text": "Das Ausflugsrestaurant im Teufelsmoor. Mit dem Bus nur 20 Minuten vom Zentrum! Norddeutsche Küche. Mit Terrasse direkt am See. Sie suchen einen Ort für Ihr Familienfest, Ihre Hochzeit, Ihre Firmenfeier? Sprechen Sie uns an! Unsere Räume bieten Platz für 150 Personen."
+            }
         ],
         "items": [
             {
                 "id": 16,
-                "person": "Claudia sucht jemanden, der an zwei Nachmittagen auf ihren 4-jährigen Sohn aufpasst.",
-                "answer_key": "c",
-                "explanation": "Anzeige C bietet Kinderbetreuung / Babysitting durch eine Studentin an."
+                "person": "Sarah heiratet bald und möchte mit vielen Gästen in einem Lokal feiern.",
+                "answer_key": "f",
+                "explanation": "Anzeige F (Hansen im Moor) bietet große Räume für Hochzeiten mit bis zu 150 Personen direkt am See."
             },
             {
                 "id": 17,
-                "person": "Maria sucht ein preiswertes Fahrrad für den täglichen Weg zur Arbeit.",
-                "answer_key": "d",
-                "explanation": "Anzeige D verkauft ein Citybike für 95 Euro."
+                "person": "Petra will mit Geschäftspartnern in der Stadt essen gehen und über die Arbeit sprechen.",
+                "answer_key": "c",
+                "explanation": "Anzeige C (Weinhaus Walter) bietet einen ruhigen Garten und Menüs direkt hinter dem Rathaus."
             },
             {
                 "id": 18,
-                "person": "Jan möchte am Wochenende lernen, wie man echte italienische Pasta kocht.",
-                "answer_key": "f",
-                "explanation": "Anzeige F bietet einen Samstags-Kochkurs für Pasta und Pizza."
+                "person": "Jens feiert seinen Geburtstag zu Hause und möchte guten Wein anbieten.",
+                "answer_key": "x",
+                "explanation": "Keine der Anzeigen bietet Weinlieferungen nach Hause an, daher ist die richtige Antwort 'x'."
             },
             {
                 "id": 19,
-                "person": "Sarah möchte nach Feierabend ein Instrument lernen, am liebsten Gitarre.",
-                "answer_key": "a",
-                "explanation": "Anzeige A bietet Gitarrenunterricht mit flexiblen Abendterminen ab 18:00 Uhr."
+                "person": "Karsten lädt am Abend Gäste zu sich nach Hause ein, möchte aber nicht kochen.",
+                "answer_key": "b",
+                "explanation": "Anzeige B (Feine Speisen) liefert Essen, Buffets und Geschirr direkt nach Hause für private Feiern."
             },
             {
                 "id": 20,
-                "person": "Felix sucht einen Schwimmkurs für Fortgeschrittene am Wochenende.",
-                "answer_key": "x",
-                "explanation": "Keine der Anzeigen bietet einen Schwimmkurs an, daher ist die richtige Antwort 'x'."
+                "person": "Gabriele und ihre Tochter feiern Kindergeburtstag und möchten Kuchen essen gehen.",
+                "answer_key": "a",
+                "explanation": "Anzeige A (Park-Café) bietet selbstgemachte Torten, Kuchen und einen Spielplatz für Kinder."
             }
         ]
     },
     {
+        "title": "Anzeigen und Dienstleistungen in der Region",
         "ads": [
-            {"id": "a", "title": "Spanisch lernen in Kleingruppen", "text": "Abendkurs für Anfänger ab Oktober. Nette Atmosphäre und muttersprachliche Lehrerin. www.spanisch-lernen.de"},
-            {"id": "b", "title": "Verkaufe Mountainbike 26 Zoll", "text": "Top Zustand, neue Reifen, Scheibenbremsen. Ideal für Touren im Wald. Preis 140 Euro. Tel: 0176-554433"},
-            {"id": "c", "title": "Klavierlehrer erteilt Privatunterricht", "text": "Klassik und Pop für Kinder und Erwachsene. Hausbesuche möglich. Tel: 0179-887766"},
-            {"id": "d", "title": "Hundebetreuung mit Herz", "text": "Liebevolle Betreuung für Ihren Hund während Ihres Urlaubs oder bei der Arbeit. Großer Garten vorhanden. Tel: 0151-332211"},
-            {"id": "e", "title": "Günstige Möbel abzugeben", "text": "Esstisch mit 4 Stühlen aus Holz sowie großes Bücherregal wegen Umzug günstig zu verkaufen. Tel: 0170-998877"},
-            {"id": "f", "title": "Yoga am Morgen im Park", "text": "Entspannter Start in den Tag jeden Dienstag und Donnerstag um 7:30 Uhr. Für alle Level geeignet. www.yoga-park.de"}
-        ],
-        "items": [
             {
-                "id": 16,
-                "person": "Stefan fährt für zwei Wochen in den Urlaub und sucht jemanden für seinen Labrador.",
-                "answer_key": "d",
-                "explanation": "Anzeige D bietet liebevolle Hundebetreuung während des Urlaubs."
+                "id": "a",
+                "title": "www.salsa-club-ritmo.de",
+                "text": "Salsa & Bachata Tanzkurse für Einsteiger! Jeden Freitag ab 19:30 Uhr. Kein fester Partner nötig. Schnupperstunde nur 10 €. Leopoldstraße 45, Tel. 089 332211"
             },
             {
-                "id": 17,
-                "person": "Lisa zieht in eine neue Wohnung und braucht noch einen Esstisch und Stühle.",
-                "answer_key": "e",
-                "explanation": "Anzeige E verkauft günstigen Esstisch mit 4 Stühlen."
+                "id": "b",
+                "title": "www.mathe-hilfe-plus.de",
+                "text": "Qualifizierte Mathematik- und Physik-Nachhilfe für Schüler bis zum Abitur. Einzelunterricht und Hausbesuche möglich. Tel. 0172 445566"
             },
             {
-                "id": 18,
-                "person": "Jonas möchte vor der Arbeit Sport treiben und sich mit Dehnübungen entspannen.",
-                "answer_key": "f",
-                "explanation": "Anzeige F bietet Yoga am Morgen um 7:30 Uhr im Park an."
+                "id": "c",
+                "title": "www.camping-ausruestung.de",
+                "text": "Zelte, Schlafsäcke und Outdoor-Kocher günstig mieten. Ideal für Festival- und Wochenendtrips an den See. Ab 15 €/Wochenende. info@outdoor-rent.de"
             },
             {
-                "id": 19,
-                "person": "Katrin plant eine Reise nach Madrid und möchte davor die spanische Sprache lernen.",
-                "answer_key": "a",
-                "explanation": "Anzeige A bietet Spanischkurse in Kleingruppen an."
+                "id": "d",
+                "title": "www.fotostudio-blickfang.de",
+                "text": "Fotoworkshops für Anfänger in der Natur. Lerne Landschaftsfotografie am Wochenende mit Profi-Ausrüstung. www.blickfang-foto.de"
             },
             {
-                "id": 20,
-                "person": "Michael sucht einen Tanzkurs für Standardtänze am Wochenende.",
-                "answer_key": "x",
-                "explanation": "Keine der Anzeigen bietet Standardtanzkurse an, daher ist die Antwort 'x'."
+                "id": "e",
+                "title": "www.auto-schnaeppchen.de",
+                "text": "Verkaufe sparsamen VW Polo, Baujahr 2019, 45.000 km, TÜV neu, Klimaanlage, 8-fach bereift. Preis: 6.200 € VB. Tel. 0151 998877"
+            },
+            {
+                "id": "f",
+                "title": "www.gartenprofi-service.de",
+                "text": "Zuverlässige Gartenpflege: Rasenmähen, Heckenschnitt, Baumpflege und Unkrautbeseitigung. Termine kurzfristig frei. 18 €/Stunde. Tel. 0176 112233"
             }
-        ]
-    },
-    {
-        "ads": [
-            {"id": "a", "title": "Salsa & Bachata Tanzkurs", "text": "Neue Anfängerkurse jeden Freitag ab 19 Uhr. Kein fester Tanzpartner erforderlich! www.salsa-club.de"},
-            {"id": "b", "title": "Mathematik-Nachhilfe bis Klasse 10", "text": "Geduldiger Student hilft bei Prüfungsvorbereitung und Hausaufgaben. Günstige Tarife. Tel: 0162-443322"},
-            {"id": "c", "title": "Campingzelt für 4 Personen zu vermieten", "text": "Großes wasserdichtes Familienzelt inklusive Luftmatratzen für Wochenenden. 30 Euro/Wochenende. Tel: 0173-889900"},
-            {"id": "d", "title": "Fotokurs für Einsteiger", "text": "Lerne die Grundlagen der digitalen Spiegelreflexkamera am Wochenende in der Natur. www.fotowelt-online.de"},
-            {"id": "e", "title": "Gepflegter Kleinwagen VW Polo", "text": "Baujahr 2018, wenig Kilometer, TÜV neu, sparsamer Benzinverbrauch. Preis: 5.800 Euro. Tel: 0157-123456"},
-            {"id": "f", "title": "Gartenhilfe gesucht", "text": "Suchen zuverlässige Unterstützung für Rasenmähen und Hecke schneiden 2x im Monat. 15 Euro/Stunde. Tel: 0178-654321"}
         ],
         "items": [
             {
                 "id": 16,
-                "person": "Tim sucht ein großes Zelt für einen Wochenendausflug an den See mit Freunden.",
+                "person": "Tim sucht ein großes Zelt für einen Wochenendausflug an den See mit seinen Freunden.",
                 "answer_key": "c",
-                "explanation": "Anzeige C vermietet ein 4-Personen-Familienzelt für Wochenenden."
+                "explanation": "Anzeige C (Camping-Ausrüstung) vermietet Zelte und Outdoor-Ausrüstung für Wochenenden."
             },
             {
                 "id": 17,
                 "person": "Elena möchte gerne tanzen lernen, hat aber im Moment keinen festen Tanzpartner.",
                 "answer_key": "a",
-                "explanation": "Anzeige A bietet Salsa-Kurse an, bei denen kein fester Partner nötig ist."
+                "explanation": "Anzeige A (Salsa Club) bietet Anfängerkurse an, für die kein fester Partner nötig ist."
             },
             {
                 "id": 18,
-                "person": "Familie Berger braucht Hilfe beim Rasenmähen in ihrem großen Garten.",
+                "person": "Familie Berger braucht Hilfe beim Rasenmähen und Heckenschnitt in ihrem großen Garten.",
                 "answer_key": "f",
-                "explanation": "Anzeige F sucht Gartenhilfe für Rasenmähen und Hecke schneiden."
+                "explanation": "Anzeige F (Gartenprofi) bietet zuverlässiges Rasenmähen und Heckenschnitt an."
             },
             {
                 "id": 19,
-                "person": "Simon hat eine neue Kamera bekommen und möchte lernen, wie man schöne Naturfotos macht.",
+                "person": "Simon hat eine neue Kamera und möchte lernen, wie man schöne Naturfotos macht.",
                 "answer_key": "d",
-                "explanation": "Anzeige D bietet Fotokurse für Einsteiger in der Natur an."
+                "explanation": "Anzeige D (Fotostudio Blickfang) bietet Naturfotografie-Workshops für Anfänger an."
             },
             {
                 "id": 20,
@@ -1172,11 +1023,11 @@ POOL_SCHREIBEN_TEIL1: List[Dict[str, Any]] = [
     {
         "teil": 1,
         "title": "Schreiben Teil 1: Verspätung ankündigen",
-        "scenario_german": "Sie können heute Abend nicht pünktlich zum Treffen mit Ihrem Freund Michael kommen.",
+        "scenario_german": "Sie haben sich heute Abend mit Ihrem Freund Michael im Kino verabredet, können aber nicht pünktlich sein.",
         "instructions_german": "Schreiben Sie eine kurze Nachricht an Michael (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
         "bullet_points": [
             "Entschuldigen Sie sich für die Verspätung.",
-            "Nennen Sie den Grund dafür.",
+            "Nennen Sie den Grund (z.B. Zugausfall oder Überstunden).",
             "Schlagen Sie einen neuen Treffpunkt oder eine neue Uhrzeit vor."
         ],
         "target_word_count": "20–30 Wörter",
@@ -1185,10 +1036,10 @@ POOL_SCHREIBEN_TEIL1: List[Dict[str, Any]] = [
     {
         "teil": 1,
         "title": "Schreiben Teil 1: Einladung ablehnen und neues Treffen vorschlagen",
-        "scenario_german": "Ihre Kollegin Maria hat Sie zum Abendessen am Freitag eingeladen. Sie haben aber keine Zeit.",
+        "scenario_german": "Ihre Kollegin Maria hat Sie zum Abendessen am Freitag eingeladen. Sie haben aber leider keine Zeit.",
         "instructions_german": "Schreiben Sie eine kurze Nachricht an Maria (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
         "bullet_points": [
-            "Bedanken Sie sich für die nette Einladung.",
+            "Bedanken Sie sich herzlich für die Einladung.",
             "Erklären Sie höflich, warum Sie am Freitag nicht kommen können.",
             "Schlagen Sie ein Treffen am nächsten Wochenende vor."
         ],
@@ -1198,41 +1049,15 @@ POOL_SCHREIBEN_TEIL1: List[Dict[str, Any]] = [
     {
         "teil": 1,
         "title": "Schreiben Teil 1: Sporttraining absagen",
-        "scenario_german": "Sie trainieren regelmäßig mit Ihrem Freund Lukas im Fitnessstudio, können aber heute nicht kommen.",
+        "scenario_german": "Sie trainieren regelmäßig mit Ihrem Freund Lukas im Fitnessstudio, sind heute aber krank.",
         "instructions_german": "Schreiben Sie eine Nachricht an Lukas (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
         "bullet_points": [
             "Sagen Sie das gemeinsame Training für heute ab.",
-            "Nennen Sie den Grund (z.B. Erkältung oder Überstunden).",
-            "Vereinbaren Sie einen Termin für die nächste Woche."
+            "Erklären Sie kurz Ihren Grund (z.B. Erkältung oder Kopfschmerzen).",
+            "Vereinbaren Sie einen neuen Termin für die nächste Woche."
         ],
         "target_word_count": "20–30 Wörter",
         "tips_english": "Write an informal note (20-30 words) cancelling training, stating why, and rescheduling."
-    },
-    {
-        "teil": 1,
-        "title": "Schreiben Teil 1: Hilfe beim Umzug erbitten",
-        "scenario_german": "Sie ziehen am kommenden Samstag in eine neue Wohnung und brauchen Unterstützung beim Tragen von Kartons.",
-        "instructions_german": "Schreiben Sie eine Nachricht an Ihre Freundin Julia (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
-        "bullet_points": [
-            "Erklären Sie, dass Sie am Samstag umziehen.",
-            "Bitten Sie Julia höflich um Hilfe beim Kistentragen.",
-            "Laden Sie sie als Dankeschön zum Pizzaessen ein."
-        ],
-        "target_word_count": "20–30 Wörter",
-        "tips_english": "Write a short note asking for moving help and inviting for pizza afterwards."
-    },
-    {
-        "teil": 1,
-        "title": "Schreiben Teil 1: Schlüssel an Nachbarn übergeben",
-        "scenario_german": "Sie fahren für eine Woche in den Urlaub und möchten Ihren Wohnungsschlüssel Ihrem Nachbarn Herrn Schmidt geben.",
-        "instructions_german": "Schreiben Sie eine Nachricht an Herrn Schmidt (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
-        "bullet_points": [
-            "Informieren Sie über Ihren Urlaub ab Montag.",
-            "Bitten Sie ihn, nach der Post und den Blumen zu schauen.",
-            "Schlagen Sie vor, wann Sie den Schlüssel vorbeibringen können."
-        ],
-        "target_word_count": "20–30 Wörter",
-        "tips_english": "Write a friendly note regarding apartment keys, watering plants, and handing over the key."
     }
 ]
 
@@ -1241,11 +1066,11 @@ POOL_SCHREIBEN_TEIL2: List[Dict[str, Any]] = [
         "teil": 2,
         "title": "Schreiben Teil 2: Sprachkurs anfragen",
         "scenario_german": "Sie möchten im nächsten Monat an einer Sprachschule in Heidelberg einen Deutschkurs (Stufe B1) besuchen. Schreiben Sie an die Sprachschule.",
-        "instructions_german": "Schreiben Sie eine E-Mail an Frau Weber von der Sprachschule (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
+        "instructions_german": "Schreiben Sie eine formelle E-Mail an Frau Weber von der Sprachschule (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
         "bullet_points": [
-            "Grund für Ihr Schreiben",
+            "Grund für Ihr Schreiben nennen",
             "Informationen zum Kurstermin und Beginn erfragen",
-            "Nach den Kosten und Unterkünften fragen",
+            "Nach den Gesamtkosten und Unterkünften fragen",
             "Passende formelle Anrede und Grußformel verwenden"
         ],
         "target_word_count": "30–40 Wörter",
@@ -1258,8 +1083,8 @@ POOL_SCHREIBEN_TEIL2: List[Dict[str, Any]] = [
         "instructions_german": "Schreiben Sie eine formelle E-Mail an das Hotel (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
         "bullet_points": [
             "Ankunftstag und Anzahl der Personen / Zimmer nennen",
-            "Nach dem Frühstück und Preisen fragen",
-            "Nach Parkplätzen am Hotel fragen",
+            "Nach dem Frühstücksangebot und den Zimmerpreisen fragen",
+            "Nach Parkplätzen direkt am Hotel fragen",
             "Höfliche formelle Anrede und Schlussformel"
         ],
         "target_word_count": "30–40 Wörter",
@@ -1268,44 +1093,16 @@ POOL_SCHREIBEN_TEIL2: List[Dict[str, Any]] = [
     {
         "teil": 2,
         "title": "Schreiben Teil 2: Wohnungsbesichtigung anfragen",
-        "scenario_german": "Sie haben im Internet eine Anzeige für eine schöne 2-Zimmer-Wohnung gesehen und möchten die Wohnung besichtigen.",
+        "scenario_german": "Sie haben im Internet eine Anzeige für eine schöne 2-Zimmer-Wohnung gesehen und möchten die Wohnung gerne besichtigen.",
         "instructions_german": "Schreiben Sie eine E-Mail an den Vermieter, Herrn Müller (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
         "bullet_points": [
-            "Sich kurz vorstellen (Beruf / Personenzahl)",
-            "Interesse an der Wohnung bekunden",
+            "Sich kurz vorstellen (Beruf und Personenzahl)",
+            "Großes Interesse an der Wohnung bekunden",
             "Nach einem Termin für eine Besichtigung fragen",
-            "Passende formelle Grußformel"
+            "Passende formelle Grußformel verwenden"
         ],
         "target_word_count": "30–40 Wörter",
         "tips_english": "Write a formal apartment inquiry email to Herr Müller introducing yourself and requesting a viewing appointment."
-    },
-    {
-        "teil": 2,
-        "title": "Schreiben Teil 2: Reparaturmeldung an Hausverwaltung",
-        "scenario_german": "In Ihrer Mietwohnung ist seit zwei Tagen die Heizung im Wohnzimmer defekt. Schreiben Sie an die Hausverwaltung.",
-        "instructions_german": "Schreiben Sie eine formelle E-Mail an die Hausverwaltung Schneider (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
-        "bullet_points": [
-            "Problem mit der Heizung beschreiben",
-            "Erklären, wie kalt es in der Wohnung ist",
-            "Um eine schnelle Reparatur bitten",
-            "Erreichbarkeit für den Handwerker angeben"
-        ],
-        "target_word_count": "30–40 Wörter",
-        "tips_english": "Write a formal email reporting a broken heating system and requesting urgent repair."
-    },
-    {
-        "teil": 2,
-        "title": "Schreiben Teil 2: Bewerbung für Minijob im Café",
-        "scenario_german": "Sie suchen einen Nebenjob am Wochenende und haben einen Aushang für eine Servicekraft im 'Café Central' gesehen.",
-        "instructions_german": "Schreiben Sie eine E-Mail an den Café-Inhaber, Herrn Fischer (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
-        "bullet_points": [
-            "Grund für die Bewerbung nennen",
-            "Eigene Erfahrung in der Gastronomie erwähnen",
-            "Verfügbarkeit am Wochenende angeben",
-            "Formelle Anrede und Schlussformel"
-        ],
-        "target_word_count": "30–40 Wörter",
-        "tips_english": "Write a formal job application email to Herr Fischer expressing interest in the weekend service job."
     }
 ]
 

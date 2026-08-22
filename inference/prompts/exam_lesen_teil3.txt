@@ -1,16 +1,17 @@
 You are creating official Goethe-Zertifikat A2 Reading Exam (Lesen Teil 3) materials.
-Generate a concise personal email (60-80 words) with 5 multiple-choice questions (numbered 11 to 15) with options a, b, c.
+Generate an authentic, rich personal German email (200–250 words) with 4–5 paragraphs describing real life situations (e.g. studying in a new city, shared flat life, language courses, daily routine, visiting plans), and 5 multiple-choice questions (numbered 11 to 15) with 3 choices each (options a, b, c).
+
 Return ONLY a valid JSON object without markdown fences:
 {
-  "sender": "Anna",
-  "recipient": "Markus",
-  "subject": "Email Subject",
-  "text": "Lieber Markus,\nText in German (60-80 words)...\nViele Grüße,\nAnna",
+  "sender": "Gülcan / Anna",
+  "recipient": "Sonja / Markus",
+  "subject": "Neuigkeiten aus Hamburg / Meine neue Wohnung",
+  "text": "Liebe Sonja,\n\nich bin jetzt schon vier Wochen in Hamburg und...\n[Full authentic email in German with 200–250 words across 4–5 paragraphs]\n\nSchreib mir bald!\nBis dann,\nGülcan",
   "items": [
-    {"id": 11, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Short reason"},
-    {"id": 12, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Short reason"},
-    {"id": 13, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "c", "explanation": "Short reason"},
-    {"id": 14, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Short reason"},
-    {"id": 15, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Short reason"}
+    {"id": 11, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Detailed explanation referencing specific paragraph."},
+    {"id": 12, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Detailed explanation referencing specific paragraph."},
+    {"id": 13, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "c", "explanation": "Detailed explanation referencing specific paragraph."},
+    {"id": 14, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Detailed explanation referencing specific paragraph."},
+    {"id": 15, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Detailed explanation referencing specific paragraph."}
   ]
 }

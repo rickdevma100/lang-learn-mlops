@@ -1,21 +1,22 @@
 You are creating official Goethe-Zertifikat A2 Reading Exam (Lesen Teil 4) materials.
-Generate 6 short classified ads (a to f) and 5 people (16 to 20) matching ads (answer_key is 'a'-'f' or 'x' for none).
+Generate 6 detailed German online classified ads/website boxes (labeled a to f) with website URLs, realistic details (opening hours, phone numbers, prices, services), and 5 specific person scenarios (numbered 16 to 20) matching one ad (answer_key is 'a', 'b', 'c', 'd', 'e', 'f', or 'x' for no matching ad).
+
 Return ONLY a valid JSON object without markdown fences:
 {
-  "title": "Anzeigen und Personen",
+  "title": "Lokale und Anzeigen im Internet",
   "ads": [
-    {"id": "a", "title": "Gitarrenunterricht", "text": "Musiklehrer gibt Gitarrenunterricht. Tel: 0176-112233"},
-    {"id": "b", "title": "Yoga im Park", "text": "Yoga jeden Dienstag um 8 Uhr. Info: yoga@web.de"},
-    {"id": "c", "title": "Spanischkurs", "text": "Abendkurs Spanisch A1. www.lingua.de"},
-    {"id": "d", "title": "Fahrrad zu verkaufen", "text": "Citybike 7 Gänge, 90 Euro. Tel: 0151-998877"},
-    {"id": "e", "title": "Möblierte Wohnung", "text": "2-Zimmer-Wohnung, 700 Euro. info@wohnen.de"},
-    {"id": "f", "title": "Kochkurs Pasta", "text": "Italienischer Kochkurs am Samstag. www.kochkurs.de"}
+    {"id": "a", "title": "www.park-cafe.de", "text": "Selbstgemachte Torten, Kuchen und italienisches Eis. Große Sonnenterrasse mit Spielplatz. Alles auch zum Mitnehmen! Täglich außer montags von 14 bis 19 Uhr geöffnet. Bergstraße 7, Tel. 08221 36152"},
+    {"id": "b", "title": "www.feine-speisen.de", "text": "Egal, wo Sie feiern wollen, wir liefern für Ihre Hochzeit oder private Feiern bestes Essen. Hochzeitsmenü ab 30 € p. P. Tische, Stühle, Dekoration und Servicepersonal verfügbar."},
+    {"id": "c", "title": "www.weinhaus-walter.de", "text": "Internationale Spezialitäten. Beste Weine. 3-Gänge-Menü mit Getränk ab 20 € pro Person. Im Sommer ruhiger Garten direkt hinter dem Rathaus. Schöner Raum für kleine Feiern."},
+    {"id": "d", "title": "www.cafe-sand.de", "text": "Urlaub in der Stadtmitte – direkt am Fluss, täglich ab 10.00 Uhr geöffnet. Großes Frühstück am Wochenende. Samstag Party mit Live-Musik ab 22 Uhr. Tel. 785 43 65."},
+    {"id": "e", "title": "www.towabu.de", "text": "Spiel + Spaß bei Towabu. Auf über 2500 qm auch bei schlechtem Wetter spielen und toben! Tolle Geburtstagspartys mit Programm. Getränke inklusive. Täglich 10 bis 20 Uhr."},
+    {"id": "f", "title": "www.hansen-im-moor.de", "text": "Das Ausflugsrestaurant im Teufelsmoor. Nur 20 Minuten vom Zentrum! Norddeutsche Küche mit Terrasse am See. Räume für Familienfeste, Hochzeiten bis 150 Personen."}
   ],
   "items": [
-    {"id": 16, "person": "Person wants Spanish course.", "answer_key": "c", "explanation": "Short reason"},
-    {"id": 17, "person": "Person wants a cheap bicycle.", "answer_key": "d", "explanation": "Short reason"},
-    {"id": 18, "person": "Person wants to learn cooking.", "answer_key": "f", "explanation": "Short reason"},
-    {"id": 19, "person": "Person wants guitar lessons.", "answer_key": "a", "explanation": "Short reason"},
-    {"id": 20, "person": "Person wants swimming lessons.", "answer_key": "x", "explanation": "Short reason"}
+    {"id": 16, "person": "Sarah heiratet bald und möchte mit vielen Gästen in einem Lokal feiern.", "answer_key": "f", "explanation": "Anzeige F (Hansen im Moor) bietet Räume für Hochzeiten mit bis zu 150 Personen."},
+    {"id": 17, "person": "Petra will mit Geschäftspartnern in der Stadt essen gehen und über die Arbeit sprechen.", "answer_key": "c", "explanation": "Anzeige C (Weinhaus Walter) bietet ruhigen Garten und Menüs direkt hinter dem Rathaus."},
+    {"id": 18, "person": "Jens feiert seinen Geburtstag zu Hause und möchte guten Wein anbieten.", "answer_key": "x", "explanation": "Keine Anzeige liefert Wein nach Hause, daher ist die Antwort 'x'."},
+    {"id": 19, "person": "Karsten lädt am Abend Gäste zu sich nach Hause ein, möchte aber nicht kochen.", "answer_key": "b", "explanation": "Anzeige B (Feine Speisen) liefert Essen nach Hause für private Feiern."},
+    {"id": 20, "person": "Gabriele und ihre Tochter feiern Kindergeburtstag und möchten Kuchen essen gehen.", "answer_key": "a", "explanation": "Anzeige A (Park-Café) bietet selbstgemachte Torten, Kuchen und Spielplatz."}
   ]
 }

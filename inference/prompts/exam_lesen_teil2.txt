@@ -1,19 +1,22 @@
 You are creating official Goethe-Zertifikat A2 Reading Exam (Lesen Teil 2) materials.
-Generate a shopping directory with 4-5 floors and 5 situational questions (numbered 6 to 10) with options a, b, c.
+Generate a comprehensive German department store floor directory (5–6 floors: 4. Stock, 3. Stock, 2. Stock, 1. Stock, EG, UG) with 10–15 detailed departments/items per floor, and 5 realistic customer situation questions (numbered 6 to 10) with 3 choices each (options a, b, c, where one option is often "Anderes Stockwerk").
+
 Return ONLY a valid JSON object without markdown fences:
 {
-  "title": "Kaufhaus-Wegweiser",
+  "title": "Kaufhaus Alexa / City-Center Wegweiser",
   "directory": [
-    {"floor": "2. Stock", "departments": "Kinderkleidung, Sportartikel"},
-    {"floor": "1. Stock", "departments": "Damen- und Herrenmode, Schuhe"},
-    {"floor": "Erdgeschoss", "departments": "Parfümerie, Uhren, Schmuck"},
-    {"floor": "Untergeschoss", "departments": "Lebensmittel, Haushaltswaren"}
+    {"floor": "4. Stock", "departments": "Bücher, Geschenke, Spielsachen, Freizeittaschen, Koffer, Brieftaschen, Café, Friseur, Kunden-WC"},
+    {"floor": "3. Stock", "departments": "Handys, Telefone, Fernseher, Computer, Tablets, Software, Drucker, CDs, Videospiele, Sportkleidung"},
+    {"floor": "2. Stock", "departments": "Herrenmode, Nachtwäsche für ihn, Möbel für Wohnzimmer, Bad und Küche, Teppiche, Lampen, Gardinen, Handtücher"},
+    {"floor": "1. Stock", "departments": "Damenmode, Nachtwäsche für sie, Kindermode, Babybekleidung, Schuhe, Geschirr, Gläser, Töpfe und Pfannen"},
+    {"floor": "Erdgeschoss (EG)", "departments": "Information, Uhren, Schmuck, Parfüm, Kosmetik, Schreibwaren, Reiseführer, Schlüsseldienst, Blumenladen"},
+    {"floor": "Untergeschoss (UG)", "departments": "Bäcker, Supermarkt, Waschmittel, Fotoservice, Zeitschriften, Theaterkarten, Reisebüro, Geldautomat"}
   ],
   "items": [
-    {"id": 6, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "2. Stock", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Short reason"},
-    {"id": 7, "question": "Customer need in German?", "options": {"a": "Erdgeschoss", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "a", "explanation": "Short reason"},
-    {"id": 8, "question": "Customer need in German?", "options": {"a": "Untergeschoss", "b": "2. Stock", "c": "1. Stock"}, "answer_key": "a", "explanation": "Short reason"},
-    {"id": 9, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "Erdgeschoss", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Short reason"},
-    {"id": 10, "question": "Customer need in German?", "options": {"a": "2. Stock", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "c", "explanation": "Short reason"}
+    {"id": 6, "question": "Customer scenario in German?", "options": {"a": "1. Stock", "b": "2. Stock", "c": "Anderes Stockwerk"}, "answer_key": "a", "explanation": "Detailed explanation of which floor contains the needed item."},
+    {"id": 7, "question": "Customer scenario in German?", "options": {"a": "3. Stock", "b": "Erdgeschoss", "c": "4. Stock"}, "answer_key": "a", "explanation": "Detailed explanation of which floor contains the needed item."},
+    {"id": 8, "question": "Customer scenario in German?", "options": {"a": "1. Stock", "b": "4. Stock", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Detailed explanation of which floor contains the needed item."},
+    {"id": 9, "question": "Customer scenario in German?", "options": {"a": "2. Stock", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "a", "explanation": "Detailed explanation of which floor contains the needed item."},
+    {"id": 10, "question": "Customer scenario in German?", "options": {"a": "Erdgeschoss", "b": "3. Stock", "c": "4. Stock"}, "answer_key": "c", "explanation": "Detailed explanation of which floor contains the needed item."}
   ]
 }
