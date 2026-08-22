@@ -125,11 +125,12 @@ class ExamOrchestrator:
             raise ValueError(f"Unknown exam module: '{module}'. Expected 'lesen' or 'schreiben'.")
 
         # Persist full paper with answer key in Redis
-        self.storage.store_paper(paper_id, paper.model_dump())
+        label = self.storage.store_paper(paper_id, paper.model_dump())
 
         # Return sanitized paper to client (no server-side answer keys)
         client_paper = {
             "paper_id": paper.paper_id,
+            "label": label,
             "module": paper.module.value,
             "level": paper.level,
             "created_at": paper.created_at,
@@ -258,10 +259,11 @@ class ExamOrchestrator:
             raise ValueError(f"Unknown exam module: '{module}'. Expected 'lesen' or 'schreiben'.")
 
         # Persist full paper in Redis
-        self.storage.store_paper(paper_id, paper.model_dump())
+        label = self.storage.store_paper(paper_id, paper.model_dump())
 
         client_paper = {
             "paper_id": paper.paper_id,
+            "label": label,
             "module": paper.module.value,
             "level": paper.level,
             "created_at": paper.created_at,
@@ -307,7 +309,45 @@ class ExamOrchestrator:
         result_dict = eval_result.model_dump()
         self.storage.store_submission(eval_result.submission_id, result_dict)
 
+        # Mark paper completed in Redis
+        self.storage.mark_paper_completed(paper_id)
+
         return result_dict
+
+    def list_saved_papers(
+        self,
+        module: Optional[str] = None,
+        status: Optional[str] = "pending",
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve saved exam question papers available in Redis."""
+        return self.storage.list_papers(module=module, status=status, limit=limit)
+
+    def load_saved_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
+        """Load a saved question paper by ID or label alias, sanitized for client."""
+        raw = self.storage.get_paper(paper_id)
+        if not raw:
+            return None
+
+        raw_mod = raw.get("module", "lesen")
+        if isinstance(raw_mod, dict):
+            raw_mod = raw_mod.get("value", "lesen")
+        mod_str = str(raw_mod).lower().replace("exammodule.", "")
+
+        return {
+            "paper_id": raw.get("paper_id", paper_id),
+            "label": raw.get("label", ""),
+            "module": mod_str,
+            "level": raw.get("level", "A2"),
+            "created_at": raw.get("created_at", ""),
+            "duration_minutes": int(raw.get("duration_minutes", 30)),
+            "total_points": float(raw.get("total_points", 25.0)),
+            "teils": raw.get("teils", {})
+        }
+
+    def delete_saved_paper(self, paper_id: str) -> bool:
+        """Delete a saved question paper from Redis."""
+        return self.storage.delete_paper(paper_id)
 
     def get_history(self, limit: int = 20) -> List[Dict[str, Any]]:
         """Retrieve recent test submissions summary."""

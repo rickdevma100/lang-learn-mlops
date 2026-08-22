@@ -103,18 +103,18 @@ def test_lesen_exact_scoring_and_pass_threshold() -> None:
     assert result_perfect.passed is True
     assert len(result_perfect.breakdown["items"]) == 20
 
-    # Test passing boundary: 15 correct -> 15 * 1.25 = 18.8 points, passed=True
-    pass_answers = {str(i): ("a" if i <= 15 else "b") for i in range(1, 21)}
+    # Test passing boundary: 12 correct -> 12 * 1.25 = 15.0 points (60%), passed=True
+    pass_answers = {str(i): ("a" if i <= 12 else "b") for i in range(1, 21)}
     result_pass = evaluate_reading(mock_paper, pass_answers)
-    assert result_pass.raw_score == 15.0
-    assert result_pass.module_score == 18.8
+    assert result_pass.raw_score == 12.0
+    assert result_pass.module_score == 15.0
     assert result_pass.passed is True
 
-    # Test failing score: 14 correct -> 14 * 1.25 = 17.5 points, passed=False
-    fail_answers = {str(i): ("a" if i <= 14 else "b") for i in range(1, 21)}
+    # Test failing score: 11 correct -> 11 * 1.25 = 13.8 points (<60%), passed=False
+    fail_answers = {str(i): ("a" if i <= 11 else "b") for i in range(1, 21)}
     result_fail = evaluate_reading(mock_paper, fail_answers)
-    assert result_fail.raw_score == 14.0
-    assert result_fail.module_score == 17.5
+    assert result_fail.raw_score == 11.0
+    assert result_fail.module_score == 13.8
     assert result_fail.passed is False
 
 

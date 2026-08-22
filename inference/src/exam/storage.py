@@ -2,8 +2,10 @@
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
 import json
 import logging
+import time
 from typing import Any, Dict, List, Optional
 import redis
 
@@ -18,6 +20,8 @@ class ExamStorage:
     def __init__(self) -> None:
         self.redis_client: Optional[redis.Redis] = None
         self._memory_papers: Dict[str, str] = {}
+        self._memory_paper_meta: Dict[str, Dict[str, Any]] = {}
+        self._memory_counters: Dict[str, int] = {}
         self._memory_submissions: Dict[str, str] = {}
         self._memory_history: List[str] = []
 
@@ -35,39 +39,194 @@ class ExamStorage:
         except Exception as e:
             logger.warning("ExamStorage running in in-memory fallback mode (Redis unavailable): %s", e)
 
-    def store_paper(self, paper_id: str, paper_dict: Dict[str, Any], ttl: int = 604800) -> bool:
-        """Store exam paper with answer key in Redis (7 days TTL)."""
+    def store_paper(self, paper_id: str, paper_dict: Dict[str, Any], ttl: int = 604800) -> str:
+        """Store exam paper with answer key in Redis (7 days TTL).
+
+        Generates and indexes an auto-incrementing human-readable label (e.g. 'Lesen Paper 1').
+        Returns the assigned label.
+        """
+        raw_mod = paper_dict.get("module", "lesen")
+        if isinstance(raw_mod, dict):
+            raw_mod = raw_mod.get("value", "lesen")
+        mod_str = str(raw_mod).lower().replace("exammodule.", "")
+
+        counter_key = f"exam:paper_counter:{mod_str}"
+        seq_num = 1
+        if self.redis_client is not None:
+            try:
+                seq_num = self.redis_client.incr(counter_key)
+            except Exception as e:
+                logger.error("Failed to increment paper counter in Redis: %s", e)
+                self._memory_counters[mod_str] = self._memory_counters.get(mod_str, 0) + 1
+                seq_num = self._memory_counters[mod_str]
+        else:
+            self._memory_counters[mod_str] = self._memory_counters.get(mod_str, 0) + 1
+            seq_num = self._memory_counters[mod_str]
+
+        label = paper_dict.get("label") or f"{mod_str.capitalize()} Paper {seq_num}"
+        paper_dict["label"] = label
+
         key = f"exam:paper:{paper_id}"
+        meta_key = f"exam:paper:meta:{paper_id}"
+        alias_key = f"exam:paper:by_label:{label.lower().replace(' ', '_')}"
         serialized = json.dumps(paper_dict, ensure_ascii=False)
+        now_ts = time.time()
+
+        meta = {
+            "paper_id": paper_id,
+            "label": label,
+            "module": mod_str,
+            "level": str(paper_dict.get("level", "A2")),
+            "created_at": str(paper_dict.get("created_at") or datetime.now(timezone.utc).isoformat()),
+            "duration_minutes": str(paper_dict.get("duration_minutes", 30)),
+            "total_points": str(paper_dict.get("total_points", 25.0)),
+            "status": "pending",
+        }
 
         if self.redis_client is not None:
             try:
+                # 1. Store full paper content with answers
                 self.redis_client.setex(key, ttl, serialized)
-                logger.info("Stored exam paper in Redis under key: %s", key)
+                # 2. Store alias key for direct human-readable lookup
+                self.redis_client.setex(alias_key, ttl, paper_id)
+                # 3. Store paper metadata
+                self.redis_client.hset(meta_key, mapping=meta)
+                self.redis_client.expire(meta_key, ttl)
+                # 4. Add to sorted index
+                self.redis_client.zadd("exam:papers:index", {paper_id: now_ts})
+                logger.info("Stored exam paper in Redis under key: %s (label: %s)", key, label)
             except Exception as e:
                 logger.error("Failed to store paper in Redis: %s", e)
 
         # Fallback / local cache
         self._memory_papers[paper_id] = serialized
-        return True
+        self._memory_paper_meta[paper_id] = meta
+        return label
 
     def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve exam paper (including answer key) by ID."""
-        key = f"exam:paper:{paper_id}"
+        """Retrieve exam paper (including answer key) by ID or label alias."""
+        lookup_id = paper_id
 
         if self.redis_client is not None:
             try:
+                # Check if paper_id is a label alias (e.g. 'lesen_paper_1' or 'Lesen Paper 1')
+                if not paper_id.startswith("exam:paper:"):
+                    alias_key = f"exam:paper:by_label:{paper_id.lower().replace(' ', '_')}"
+                    aliased_id = self.redis_client.get(alias_key)
+                    if aliased_id and isinstance(aliased_id, (str, bytes, bytearray)):
+                        lookup_id = str(aliased_id)
+
+                key = f"exam:paper:{lookup_id}"
                 raw = self.redis_client.get(key)
                 if raw and isinstance(raw, (str, bytes, bytearray)):
                     return json.loads(raw)
             except Exception as e:
-                logger.error("Failed to fetch paper %s from Redis: %s", paper_id, e)
+                logger.error("Failed to fetch paper %s from Redis: %s", lookup_id, e)
 
         # Fallback
-        raw = self._memory_papers.get(paper_id)
+        raw = self._memory_papers.get(lookup_id)
         if raw and isinstance(raw, (str, bytes, bytearray)):
             return json.loads(raw)
         return None
+
+    def list_papers(
+        self,
+        module: Optional[str] = None,
+        status: Optional[str] = "pending",
+        limit: int = 20,
+    ) -> List[Dict[str, Any]]:
+        """Retrieve saved exam question papers from Redis."""
+        papers: List[Dict[str, Any]] = []
+        mod_filter = module.strip().lower() if module else None
+
+        if self.redis_client is not None:
+            try:
+                paper_ids = self.redis_client.zrevrange("exam:papers:index", 0, -1)
+                for pid in paper_ids:
+                    meta_key = f"exam:paper:meta:{pid}"
+                    meta = self.redis_client.hgetall(meta_key)
+                    if not meta:
+                        # Paper expired or deleted; cleanup index
+                        self.redis_client.zrem("exam:papers:index", pid)
+                        continue
+
+                    if mod_filter and meta.get("module") != mod_filter:
+                        continue
+                    if status and meta.get("status") != status:
+                        continue
+
+                    papers.append({
+                        "paper_id": meta.get("paper_id", pid),
+                        "label": meta.get("label", f"Paper {pid[:8]}"),
+                        "module": meta.get("module", "lesen"),
+                        "level": meta.get("level", "A2"),
+                        "created_at": meta.get("created_at", ""),
+                        "duration_minutes": int(meta.get("duration_minutes", 30)),
+                        "total_points": float(meta.get("total_points", 25.0)),
+                        "status": meta.get("status", "pending")
+                    })
+                    if len(papers) >= limit:
+                        break
+                return papers
+            except Exception as e:
+                logger.error("Failed to list papers from Redis: %s", e)
+
+        # Fallback in-memory
+        for pid, meta in sorted(
+            self._memory_paper_meta.items(),
+            key=lambda x: x[1].get("created_at", ""),
+            reverse=True
+        ):
+            if mod_filter and meta.get("module") != mod_filter:
+                continue
+            if status and meta.get("status") != status:
+                continue
+            papers.append({
+                "paper_id": meta.get("paper_id", pid),
+                "label": meta.get("label", f"Paper {pid[:8]}"),
+                "module": meta.get("module", "lesen"),
+                "level": meta.get("level", "A2"),
+                "created_at": meta.get("created_at", ""),
+                "duration_minutes": int(meta.get("duration_minutes", 30)),
+                "total_points": float(meta.get("total_points", 25.0)),
+                "status": meta.get("status", "pending")
+            })
+            if len(papers) >= limit:
+                break
+        return papers
+
+    def mark_paper_completed(self, paper_id: str) -> None:
+        """Mark a saved paper as completed."""
+        meta_key = f"exam:paper:meta:{paper_id}"
+        if self.redis_client is not None:
+            try:
+                self.redis_client.hset(meta_key, "status", "completed")
+                logger.info("Marked paper %s as completed in Redis", paper_id)
+            except Exception as e:
+                logger.error("Failed to mark paper %s completed in Redis: %s", paper_id, e)
+        if paper_id in self._memory_paper_meta:
+            self._memory_paper_meta[paper_id]["status"] = "completed"
+
+    def delete_paper(self, paper_id: str) -> bool:
+        """Delete a saved paper from Redis and clean up indexes."""
+        key = f"exam:paper:{paper_id}"
+        meta_key = f"exam:paper:meta:{paper_id}"
+        if self.redis_client is not None:
+            try:
+                meta = self.redis_client.hgetall(meta_key)
+                if meta and "label" in meta:
+                    alias_key = f"exam:paper:by_label:{meta['label'].lower().replace(' ', '_')}"
+                    self.redis_client.delete(alias_key)
+                self.redis_client.delete(key)
+                self.redis_client.delete(meta_key)
+                self.redis_client.zrem("exam:papers:index", paper_id)
+                logger.info("Deleted paper %s from Redis", paper_id)
+            except Exception as e:
+                logger.error("Failed to delete paper %s from Redis: %s", paper_id, e)
+
+        self._memory_papers.pop(paper_id, None)
+        self._memory_paper_meta.pop(paper_id, None)
+        return True
 
     def store_submission(self, submission_id: str, result_dict: Dict[str, Any], ttl: int = 2592000) -> bool:
         """Store exam submission & evaluation result in Redis (30 days TTL)."""

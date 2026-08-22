@@ -37,23 +37,59 @@ def _extract_json(text: str) -> Dict[str, Any] | None:
     return None
 
 
+def _normalize_option_letter(val: Any, valid_set: tuple = ("a", "b", "c", "d", "e", "f", "x")) -> str:
+    """Extract and normalize a single option letter."""
+    if val is None:
+        return ""
+    s = str(val).strip().lower()
+    if s in valid_set:
+        return s
+    if any(k in s for k in ("kein", "nein", "none", "nicht", "x")):
+        return "x"
+    m = re.search(r"\b([a-z])\b", s)
+    if m and m.group(1) in valid_set:
+        return m.group(1)
+    if s and s[0] in valid_set:
+        return s[0]
+    return s
+
+
 def evaluate_reading(paper: Dict[str, Any], user_answers: Dict[str, Any]) -> EvaluationResult:
     """Deterministically score a Lesen (Reading) exam using the Redis-stored answer key.
 
     Formula: 20 raw items * 1.25 = 25 module points.
-    Pass threshold: >= 15 / 20 raw items (>= 18.75 / 25 points, >= 60%).
+    Pass threshold: >= 15.0 / 25.0 module points (>= 12 / 20 raw items, >= 60%).
     """
-    answer_key = paper.get("answer_key", {}).get("answer_key", {})
-    explanations = paper.get("answer_key", {}).get("explanations", {})
+    raw_ak = paper.get("answer_key", {})
+    if isinstance(raw_ak, dict) and "answer_key" in raw_ak:
+        answer_key = raw_ak.get("answer_key", {})
+        explanations = raw_ak.get("explanations", {})
+    elif isinstance(raw_ak, dict):
+        answer_key = raw_ak
+        explanations = {}
+    else:
+        answer_key = {}
+        explanations = {}
+
+    # Fallback answer key extraction from teils if top-level answer_key was omitted
+    if not answer_key:
+        teils = paper.get("teils", {})
+        for t_name, t_data in teils.items():
+            if isinstance(t_data, dict) and "items" in t_data:
+                for itm in t_data["items"]:
+                    if "id" in itm and "answer_key" in itm:
+                        answer_key[str(itm["id"])] = itm["answer_key"]
+                    if "id" in itm and "explanation" in itm:
+                        explanations[str(itm["id"])] = itm["explanation"]
 
     # Flatten user answers if grouped by teil
     flat_user_answers: Dict[str, str] = {}
     for k, v in user_answers.items():
         if isinstance(v, dict):
             for sub_k, sub_v in v.items():
-                flat_user_answers[str(sub_k)] = str(sub_v).strip().lower()
+                flat_user_answers[str(sub_k)] = _normalize_option_letter(sub_v)
         else:
-            flat_user_answers[str(k)] = str(v).strip().lower()
+            flat_user_answers[str(k)] = _normalize_option_letter(v)
 
     item_results = []
     teil_counts = {"teil1": {"correct": 0, "total": 5},
@@ -66,8 +102,11 @@ def evaluate_reading(paper: Dict[str, Any], user_answers: Dict[str, Any]) -> Eva
 
     for q_id in range(1, 21):
         q_str = str(q_id)
-        expected = str(answer_key.get(q_str, "")).strip().lower()
-        user_ans = str(flat_user_answers.get(q_str, "")).strip().lower()
+        raw_expected = answer_key.get(q_str, "")
+        raw_user_ans = flat_user_answers.get(q_str, "")
+
+        expected = _normalize_option_letter(raw_expected)
+        user_ans = _normalize_option_letter(raw_user_ans)
         is_correct = bool(expected and user_ans and (user_ans == expected))
 
         if is_correct:
@@ -96,7 +135,7 @@ def evaluate_reading(paper: Dict[str, Any], user_answers: Dict[str, Any]) -> Eva
         })
 
     module_score = round(correct_count * 1.25, 1)
-    passed = correct_count >= 15  # Goethe written block requirement
+    passed = module_score >= 15.0  # Official Goethe 60% requirement (>= 12 out of 20 items)
 
     breakdown = {
         "teils": {
@@ -129,9 +168,9 @@ def evaluate_reading(paper: Dict[str, Any], user_answers: Dict[str, Any]) -> Eva
     }
 
     feedback = (
-        f"Herzlichen Glückwunsch! Sie haben den Leseteil mit {module_score}/25 Punkten bestanden."
+        f"Herzlichen Glückwunsch! Sie haben den Leseteil mit {module_score}/25.0 Punkten ({correct_count}/20 richtig) bestanden."
         if passed
-        else f"Leider nicht bestanden ({module_score}/25 Punkten). Sie benötigen mindestens 15 von 20 richtigen Antworten (18.75/25)."
+        else f"Leider nicht bestanden ({module_score}/25.0 Punkten, {correct_count}/20 richtig). Sie benötigen mindestens 15.0 von 25.0 Punkten (60%, mindestens 12 richtige Antworten)."
     )
 
     return EvaluationResult(

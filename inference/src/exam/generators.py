@@ -64,6 +64,62 @@ def _extract_json(text: str) -> Dict[str, Any] | None:
     return None
 
 
+def _normalize_option_letter(val: Any, valid_set: tuple = ("a", "b", "c")) -> str:
+    """Extract and normalize a single option letter from LLM answer_key string."""
+    if val is None:
+        return valid_set[0]
+
+    s = str(val).strip().lower()
+    if s in valid_set:
+        return s
+
+    # Handle 'keine', 'none', 'nein', '-' for Teil 4
+    if "x" in valid_set and any(k in s for k in ("kein", "nein", "none", "nicht", "x")):
+        return "x"
+
+    # Match single character options like 'a)', '(a)', 'a.', 'option a', 'anzeige a'
+    m = re.search(r"\b([a-z])\b", s)
+    if m and m.group(1) in valid_set:
+        return m.group(1)
+
+    # First character if valid
+    if s and s[0] in valid_set:
+        return s[0]
+
+    return valid_set[0]
+
+
+def _extract_item_answer(item: Dict[str, Any], default: str = "a", valid_options: tuple = ("a", "b", "c")) -> str:
+    """Extract answer key from item regardless of field naming variation."""
+    raw = (
+        item.get("answer_key")
+        or item.get("answer")
+        or item.get("correct_answer")
+        or item.get("solution")
+        or item.get("correct_option")
+        or item.get("correct")
+        or default
+    )
+    return _normalize_option_letter(raw, valid_set=valid_options)
+
+
+def _normalize_options_dict(raw_opts: Any) -> Dict[str, str]:
+    """Normalize options to lowercase keys {'a': '...', 'b': '...', 'c': '...'}."""
+    if isinstance(raw_opts, list):
+        return {chr(ord('a') + i): str(opt) for i, opt in enumerate(raw_opts[:3])}
+    elif isinstance(raw_opts, dict):
+        normalized = {}
+        for k, v in raw_opts.items():
+            norm_key = _normalize_option_letter(k, valid_set=("a", "b", "c"))
+            normalized[norm_key] = str(v)
+        # Ensure at least a, b, c exist
+        for k in ("a", "b", "c"):
+            if k not in normalized:
+                normalized[k] = f"Option {k.upper()}"
+        return normalized
+    return {"a": "Option A", "b": "Option B", "c": "Option C"}
+
+
 # ---------------------------------------------------------------------------
 # Dynamic Goethe A2 Topic Themes for LLM Injections
 # ---------------------------------------------------------------------------
@@ -111,7 +167,6 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
             data = parsed
             source = "llm"
-            # Ensure exactly 5 items
             if len(data["items"]) == 4:
                 data["items"].append(fallback_choice["items"][4])
             else:
@@ -128,17 +183,22 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
     logger.info("Lesen Teil 1 source: %s (theme: %s)", source, selected_theme)
 
-    # Extract answer key
-    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
-    # Build sanitized frontend data
     sanitized_items = []
-    for item in data["items"]:
+    answer_key = {}
+    explanations = {}
+
+    for idx, item in enumerate(data["items"][:5], start=1):
+        q_id = idx  # Canonical: 1..5
+        ans = _extract_item_answer(item, default="a", valid_options=("a", "b", "c"))
+        exp = str(item.get("explanation") or item.get("reason") or "Richtige Antwort laut Text.")
+        opts = _normalize_options_dict(item.get("options", {}))
+
+        answer_key[str(q_id)] = ans
+        explanations[str(q_id)] = exp
         sanitized_items.append({
-            "id": item["id"],
-            "question": item["question"],
-            "options": item["options"]
+            "id": q_id,
+            "question": str(item.get("question", "")),
+            "options": opts
         })
 
     sanitized = {
@@ -177,15 +237,22 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
     logger.info("Lesen Teil 2 source: %s (venue: %s)", source, selected_theme)
 
-    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
     sanitized_items = []
-    for item in data["items"]:
+    answer_key = {}
+    explanations = {}
+
+    for idx, item in enumerate(data["items"][:5], start=6):
+        q_id = idx  # Canonical: 6..10
+        ans = _extract_item_answer(item, default="a", valid_options=("a", "b", "c"))
+        exp = str(item.get("explanation") or item.get("reason") or "Richtige Etage laut Wegweiser.")
+        opts = _normalize_options_dict(item.get("options", {}))
+
+        answer_key[str(q_id)] = ans
+        explanations[str(q_id)] = exp
         sanitized_items.append({
-            "id": item["id"],
-            "question": item["question"],
-            "options": item["options"]
+            "id": q_id,
+            "question": str(item.get("question", "")),
+            "options": opts
         })
 
     sanitized = {
@@ -224,15 +291,22 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
     logger.info("Lesen Teil 3 source: %s (context: %s)", source, selected_theme)
 
-    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
     sanitized_items = []
-    for item in data["items"]:
+    answer_key = {}
+    explanations = {}
+
+    for idx, item in enumerate(data["items"][:5], start=11):
+        q_id = idx  # Canonical: 11..15
+        ans = _extract_item_answer(item, default="a", valid_options=("a", "b", "c"))
+        exp = str(item.get("explanation") or item.get("reason") or "Richtige Information laut E-Mail.")
+        opts = _normalize_options_dict(item.get("options", {}))
+
+        answer_key[str(q_id)] = ans
+        explanations[str(q_id)] = exp
         sanitized_items.append({
-            "id": item["id"],
-            "question": item["question"],
-            "options": item["options"]
+            "id": q_id,
+            "question": str(item.get("question", "")),
+            "options": opts
         })
 
     sanitized = {
@@ -274,14 +348,21 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
     logger.info("Lesen Teil 4 source: %s", source)
 
-    answer_key = {str(item["id"]): item.get("answer_key", "x").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
     sanitized_items = []
-    for item in data["items"]:
+    answer_key = {}
+    explanations = {}
+
+    for idx, item in enumerate(data["items"][:5], start=16):
+        q_id = idx  # Canonical: 16..20
+        ans = _extract_item_answer(item, default="x", valid_options=("a", "b", "c", "d", "e", "f", "x"))
+        exp = str(item.get("explanation") or item.get("reason") or "Passende Anzeige zu den Bedürfnissen der Person.")
+        person_text = str(item.get("person") or item.get("question") or item.get("text") or "")
+
+        answer_key[str(q_id)] = ans
+        explanations[str(q_id)] = exp
         sanitized_items.append({
-            "id": item["id"],
-            "person": item["person"]
+            "id": q_id,
+            "person": person_text
         })
 
     sanitized = {

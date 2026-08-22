@@ -103,6 +103,7 @@ class SchreibenTeil2(BaseModel):
 
 class ExamPaper(BaseModel):
     paper_id: str
+    label: Optional[str] = None
     module: ExamModule
     level: str = "A2"
     created_at: str

@@ -988,4 +988,61 @@ class LangLearnService:
                 "traceback": tb,
             }
 
+    @bentoml.api
+    def exam_saved_papers(
+        self,
+        module: str = "",
+        status: str = "pending",
+        limit: int = 20,
+    ) -> dict:
+        """List saved Goethe A2 exam question papers stored in Redis."""
+        try:
+            mod = module.strip().lower() if module else None
+            papers = self.exam_orchestrator.list_saved_papers(module=mod, status=status, limit=limit)
+            return {"papers": papers}
+        except Exception as e:
+            tb = _write_error("exam_saved_papers", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
+    @bentoml.api
+    def exam_load_paper(
+        self,
+        paper_id: str,
+    ) -> dict:
+        """Load a saved Goethe A2 question paper by ID or label alias (sanitized for client)."""
+        try:
+            paper = self.exam_orchestrator.load_saved_paper(paper_id=paper_id)
+            if not paper:
+                return {"error": f"Paper '{paper_id}' not found in storage.", "found": False}
+            return {"paper": paper, "found": True}
+        except Exception as e:
+            tb = _write_error("exam_load_paper", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
+    @bentoml.api
+    def exam_delete_paper(
+        self,
+        paper_id: str,
+    ) -> dict:
+        """Delete a saved exam question paper from Redis."""
+        try:
+            success = self.exam_orchestrator.delete_saved_paper(paper_id=paper_id)
+            return {"success": success, "paper_id": paper_id}
+        except Exception as e:
+            tb = _write_error("exam_delete_paper", e)
+            return {
+                "error": str(e),
+                "type": type(e).__name__,
+                "traceback": tb,
+            }
+
+
 
