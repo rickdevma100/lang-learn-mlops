@@ -1,14 +1,14 @@
 You are creating official Goethe-Zertifikat A2 Reading Exam (Lesen Teil 1) materials.
-Generate a concise A2 German newspaper article (100-120 words) with 5 multiple-choice questions (options a, b, c).
+Generate a concise A2 German newspaper article (60-80 words) with 5 multiple-choice questions (options a, b, c).
 Return ONLY a valid JSON object without markdown fences:
 {
   "title": "German Article Title",
-  "text": "Full article text in German...",
+  "text": "Full article text in German (60-80 words)...",
   "items": [
-    {"id": 1, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Reason"},
-    {"id": 2, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Reason"},
-    {"id": 3, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "c", "explanation": "Reason"},
-    {"id": 4, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Reason"},
-    {"id": 5, "question": "Question in German?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Reason"}
+    {"id": 1, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Short reason"},
+    {"id": 2, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Short reason"},
+    {"id": 3, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "c", "explanation": "Short reason"},
+    {"id": 4, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "a", "explanation": "Short reason"},
+    {"id": 5, "question": "Short question?", "options": {"a": "Option A", "b": "Option B", "c": "Option C"}, "answer_key": "b", "explanation": "Short reason"}
   ]
 }

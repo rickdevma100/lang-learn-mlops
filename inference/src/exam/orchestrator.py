@@ -139,6 +139,142 @@ class ExamOrchestrator:
         }
         return client_paper
 
+    async def generate_paper_stream(self, module: str = "lesen", level: str = "A2"):
+        """Progressively generate and yield exam Teile one-by-one as Server-Sent Events.
+
+        Yields:
+          - {"type": "init", "paper_id": ..., "module": ..., "total_teils": ...}
+          - {"type": "teil", "teil_index": 1, "teil_name": "teil1", "data": {...}}
+          ...
+          - {"type": "done", "paper": {...}}
+        """
+        mod = module.strip().lower()
+        paper_id = str(uuid.uuid4())
+        created_at = datetime.now(timezone.utc).isoformat()
+        total_teils = 4 if mod == "lesen" else 2
+
+        yield {
+            "type": "init",
+            "paper_id": paper_id,
+            "module": mod,
+            "level": level,
+            "total_teils": total_teils,
+            "created_at": created_at,
+            "duration_minutes": 30,
+            "total_points": 25.0
+        }
+
+        teils = {}
+        aggregated_answer_key = {}
+        aggregated_explanations = {}
+
+        if mod == "lesen":
+            generators = [
+                (1, "teil1", generate_lesen_teil1),
+                (2, "teil2", generate_lesen_teil2),
+                (3, "teil3", generate_lesen_teil3),
+                (4, "teil4", generate_lesen_teil4),
+            ]
+
+            for idx, t_name, gen_fn in generators:
+                gen_task = asyncio.create_task(gen_fn(level))
+                while not gen_task.done():
+                    await asyncio.sleep(5)
+                    if not gen_task.done():
+                        yield {"type": "ping", "teil_index": idx}
+
+                try:
+                    t_data, t_key = await gen_task
+                except Exception as e:
+                    logger.error("Streaming error in %s: %s", t_name, e)
+                    t_data, t_key = await gen_fn(level)
+
+                teils[t_name] = t_data
+                aggregated_answer_key.update(t_key.get("answer_key", {}))
+                aggregated_explanations.update(t_key.get("explanations", {}))
+
+                yield {
+                    "type": "teil",
+                    "teil_index": idx,
+                    "teil_name": t_name,
+                    "data": t_data
+                }
+
+            full_answer_key = {
+                "answer_key": aggregated_answer_key,
+                "explanations": aggregated_explanations
+            }
+
+            paper = ExamPaper(
+                paper_id=paper_id,
+                module=ExamModule.LESEN,
+                level=level,
+                created_at=created_at,
+                duration_minutes=30,
+                total_points=25.0,
+                teils=teils,
+                answer_key=full_answer_key
+            )
+
+        elif mod == "schreiben":
+            generators = [
+                (1, "teil1", generate_schreiben_teil1),
+                (2, "teil2", generate_schreiben_teil2),
+            ]
+
+            for idx, t_name, gen_fn in generators:
+                gen_task = asyncio.create_task(gen_fn(level))
+                while not gen_task.done():
+                    await asyncio.sleep(5)
+                    if not gen_task.done():
+                        yield {"type": "ping", "teil_index": idx}
+
+                try:
+                    t_data = await gen_task
+                except Exception as e:
+                    logger.error("Streaming error in %s: %s", t_name, e)
+                    t_data = await gen_fn(level)
+
+                teils[t_name] = t_data
+
+                yield {
+                    "type": "teil",
+                    "teil_index": idx,
+                    "teil_name": t_name,
+                    "data": t_data
+                }
+
+            paper = ExamPaper(
+                paper_id=paper_id,
+                module=ExamModule.SCHREIBEN,
+                level=level,
+                created_at=created_at,
+                duration_minutes=30,
+                total_points=25.0,
+                teils=teils,
+                answer_key=None
+            )
+        else:
+            raise ValueError(f"Unknown exam module: '{module}'. Expected 'lesen' or 'schreiben'.")
+
+        # Persist full paper in Redis
+        self.storage.store_paper(paper_id, paper.model_dump())
+
+        client_paper = {
+            "paper_id": paper.paper_id,
+            "module": paper.module.value,
+            "level": paper.level,
+            "created_at": paper.created_at,
+            "duration_minutes": paper.duration_minutes,
+            "total_points": paper.total_points,
+            "teils": paper.teils
+        }
+
+        yield {
+            "type": "done",
+            "paper": client_paper
+        }
+
     def evaluate_paper(
         self,
         paper_id: str,

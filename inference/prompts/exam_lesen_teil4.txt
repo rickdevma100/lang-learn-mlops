@@ -12,10 +12,10 @@ Return ONLY a valid JSON object without markdown fences:
     {"id": "f", "title": "Kochkurs Pasta", "text": "Italienischer Kochkurs am Samstag. www.kochkurs.de"}
   ],
   "items": [
-    {"id": 16, "person": "Person wants Spanish course.", "answer_key": "c", "explanation": "Ad C matches"},
-    {"id": 17, "person": "Person wants a cheap bicycle.", "answer_key": "d", "explanation": "Ad D matches"},
-    {"id": 18, "person": "Person wants to learn cooking.", "answer_key": "f", "explanation": "Ad F matches"},
-    {"id": 19, "person": "Person wants guitar lessons.", "answer_key": "a", "explanation": "Ad A matches"},
-    {"id": 20, "person": "Person wants swimming lessons.", "answer_key": "x", "explanation": "No ad matches, so x"}
+    {"id": 16, "person": "Person wants Spanish course.", "answer_key": "c", "explanation": "Short reason"},
+    {"id": 17, "person": "Person wants a cheap bicycle.", "answer_key": "d", "explanation": "Short reason"},
+    {"id": 18, "person": "Person wants to learn cooking.", "answer_key": "f", "explanation": "Short reason"},
+    {"id": 19, "person": "Person wants guitar lessons.", "answer_key": "a", "explanation": "Short reason"},
+    {"id": 20, "person": "Person wants swimming lessons.", "answer_key": "x", "explanation": "Short reason"}
   ]
 }

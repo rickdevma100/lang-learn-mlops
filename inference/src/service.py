@@ -21,7 +21,7 @@ import sys
 import time
 import traceback
 from pathlib import Path
-from typing import Annotated, Generator
+from typing import Annotated, AsyncGenerator, Generator
 
 import bentoml
 # pyrefly: ignore [missing-import]
@@ -85,7 +85,7 @@ def _write_error(prefix: str, exc: BaseException) -> str:
 
 @bentoml.service(
     name="lang-learn",
-    traffic={"timeout": 300},
+    traffic={"timeout": 600},
     resources={"cpu": "4", "memory": "16Gi"},
 )
 class LangLearnService:
@@ -889,6 +889,30 @@ class LangLearnService:
     # ----------------------------------------------------------------------
     # Goethe A2 Exam Suite Endpoints
     # ----------------------------------------------------------------------
+
+    @bentoml.api
+    async def exam_generate_stream(
+        self,
+        module: str = "lesen",
+        level: str = "A2",
+    ) -> AsyncGenerator[str, None]:
+        """SSE streaming endpoint for progressive Goethe A2 exam paper generation.
+
+        Streams events as each Teil finishes generating:
+          - {"type": "init", "paper_id": ..., "module": ..., "total_teils": 4}
+          - {"type": "teil", "teil_index": 1, "teil_name": "teil1", "data": {...}}
+          - {"type": "done", "paper": {...}}
+        """
+        t0 = time.time()
+        try:
+            async for event in self.exam_orchestrator.generate_paper_stream(module=module, level=level):
+                yield f"data: {json.dumps(event)}\n\n"
+            latency = time.time() - t0
+            logger.info("Streamed %s exam paper in %.2fs", module, latency)
+        except Exception as e:
+            tb = _write_error("exam_generate_stream", e)
+            err_event = json.dumps({"type": "error", "error": str(e), "traceback": tb})
+            yield f"data: {err_event}\n\n"
 
     @bentoml.api
     async def exam_generate(

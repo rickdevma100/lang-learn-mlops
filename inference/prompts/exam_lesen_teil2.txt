@@ -10,10 +10,10 @@ Return ONLY a valid JSON object without markdown fences:
     {"floor": "Untergeschoss", "departments": "Lebensmittel, Haushaltswaren"}
   ],
   "items": [
-    {"id": 6, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "2. Stock", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Reason"},
-    {"id": 7, "question": "Customer need in German?", "options": {"a": "Erdgeschoss", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "a", "explanation": "Reason"},
-    {"id": 8, "question": "Customer need in German?", "options": {"a": "Untergeschoss", "b": "2. Stock", "c": "1. Stock"}, "answer_key": "a", "explanation": "Reason"},
-    {"id": 9, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "Erdgeschoss", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Reason"},
-    {"id": 10, "question": "Customer need in German?", "options": {"a": "2. Stock", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "c", "explanation": "Reason"}
+    {"id": 6, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "2. Stock", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Short reason"},
+    {"id": 7, "question": "Customer need in German?", "options": {"a": "Erdgeschoss", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "a", "explanation": "Short reason"},
+    {"id": 8, "question": "Customer need in German?", "options": {"a": "Untergeschoss", "b": "2. Stock", "c": "1. Stock"}, "answer_key": "a", "explanation": "Short reason"},
+    {"id": 9, "question": "Customer need in German?", "options": {"a": "1. Stock", "b": "Erdgeschoss", "c": "Anderes Stockwerk"}, "answer_key": "b", "explanation": "Short reason"},
+    {"id": 10, "question": "Customer need in German?", "options": {"a": "2. Stock", "b": "1. Stock", "c": "Untergeschoss"}, "answer_key": "c", "explanation": "Short reason"}
   ]
 }

@@ -48,6 +48,19 @@ def _extract_json(text: str) -> Dict[str, Any] | None:
                 return json.loads(repaired)
             except json.JSONDecodeError:
                 pass
+
+    # Fallback: if ends abruptly, try closing brackets
+    start_idx = cleaned.find("{")
+    if start_idx != -1:
+        truncated = cleaned[start_idx:]
+        for suffix in ["}]}", "]}", "}", '"]}', '"}']:
+            try:
+                fixed = re.sub(r",\s*$", "", truncated) + suffix
+                fixed = re.sub(r",\s*([\}\]])", r"\1", fixed)
+                return json.loads(fixed)
+            except Exception:
+                continue
+
     return None
 
 
@@ -64,6 +77,266 @@ THEMES_TEIL1 = [
     "Flohmärkte und Second-Hand-Mode bei jungen Leuten",
     "Umweltfreundlich leben und Müll vermeiden im Alltag"
 ]
+
+THEMES_TEIL2 = [
+    "Großes Einkaufszentrum 'Stadt-Galerie' (4 Etagen)",
+    "Modernes Kaufhaus am Hauptbahnhof (4 Stockwerke)",
+    "Bürgeramt und Dienstleistungszentrum der Stadt",
+    "Hauptbibliothek und Kulturzentrum am Marktplatz"
+]
+
+THEMES_TEIL3 = [
+    "Einladung zu einer Geburtstagsfeier am Samstagabend",
+    "Absage und Terminverschiebung für ein Treffen",
+    "Urlaubsgrüße und Reisebericht von der Ostsee",
+    "Neue Wohnung renovieren und Umzugshelfer gesucht",
+    "Gemeinsamer Ausflug ins Museum am Wochenende"
+]
+
+
+# ---------------------------------------------------------------------------
+# Generator Functions (Dispatched concurrently with dynamic theme injection)
+# ---------------------------------------------------------------------------
+
+async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Generate Lesen Teil 1 (Newspaper Article). Returns (sanitized_teil, answer_key)."""
+    selected_theme = random.choice(THEMES_TEIL1)
+    fallback_choice = random.choice(POOL_LESEN_TEIL1)
+    source = "fallback"
+    try:
+        template = load_prompt("exam_lesen_teil1.txt")
+        prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
+        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=850, temperature=0.75)
+        parsed = _extract_json(raw)
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
+            data = parsed
+            source = "llm"
+            # Ensure exactly 5 items
+            if len(data["items"]) == 4:
+                data["items"].append(fallback_choice["items"][4])
+            else:
+                data["items"] = data["items"][:5]
+        else:
+            logger.warning(
+                "Lesen Teil 1: LLM output failed validation (parsed=%s, items=%d), using fallback",
+                parsed is not None, len(parsed.get("items", [])) if parsed else 0
+            )
+            data = fallback_choice
+    except Exception as e:
+        logger.warning("Error generating Lesen Teil 1, using fallback: %s", e)
+        data = fallback_choice
+
+    logger.info("Lesen Teil 1 source: %s (theme: %s)", source, selected_theme)
+
+    # Extract answer key
+    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
+    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
+
+    # Build sanitized frontend data
+    sanitized_items = []
+    for item in data["items"]:
+        sanitized_items.append({
+            "id": item["id"],
+            "question": item["question"],
+            "options": item["options"]
+        })
+
+    sanitized = {
+        "teil": 1,
+        "title": data.get("title", "Lesen Teil 1: Zeitungsartikel"),
+        "text": data["text"],
+        "items": sanitized_items,
+        "source": source
+    }
+    return sanitized, {"answer_key": answer_key, "explanations": explanations}
+
+
+async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Generate Lesen Teil 2 (Kaufhaus Info Board). Returns (sanitized_teil, answer_key)."""
+    selected_theme = random.choice(THEMES_TEIL2)
+    fallback_choice = random.choice(POOL_LESEN_TEIL2)
+    source = "fallback"
+    try:
+        template = load_prompt("exam_lesen_teil2.txt")
+        prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
+        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=850, temperature=0.75)
+        parsed = _extract_json(raw)
+        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
+            data = parsed
+            source = "llm"
+            if len(data["items"]) == 4:
+                data["items"].append(fallback_choice["items"][4])
+            else:
+                data["items"] = data["items"][:5]
+        else:
+            logger.warning("Lesen Teil 2: LLM output failed validation, using fallback")
+            data = fallback_choice
+    except Exception as e:
+        logger.warning("Error generating Lesen Teil 2, using fallback: %s", e)
+        data = fallback_choice
+
+    logger.info("Lesen Teil 2 source: %s (venue: %s)", source, selected_theme)
+
+    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
+    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
+
+    sanitized_items = []
+    for item in data["items"]:
+        sanitized_items.append({
+            "id": item["id"],
+            "question": item["question"],
+            "options": item["options"]
+        })
+
+    sanitized = {
+        "teil": 2,
+        "title": data.get("title", "Lesen Teil 2: Kaufhaus-Wegweiser"),
+        "directory": data["directory"],
+        "items": sanitized_items,
+        "source": source
+    }
+    return sanitized, {"answer_key": answer_key, "explanations": explanations}
+
+
+async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Generate Lesen Teil 3 (Personal Email). Returns (sanitized_teil, answer_key)."""
+    selected_theme = random.choice(THEMES_TEIL3)
+    fallback_choice = random.choice(POOL_LESEN_TEIL3)
+    source = "fallback"
+    try:
+        template = load_prompt("exam_lesen_teil3.txt")
+        prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
+        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=850, temperature=0.75)
+        parsed = _extract_json(raw)
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
+            data = parsed
+            source = "llm"
+            if len(data["items"]) == 4:
+                data["items"].append(fallback_choice["items"][4])
+            else:
+                data["items"] = data["items"][:5]
+        else:
+            logger.warning("Lesen Teil 3: LLM output failed validation, using fallback")
+            data = fallback_choice
+    except Exception as e:
+        logger.warning("Error generating Lesen Teil 3, using fallback: %s", e)
+        data = fallback_choice
+
+    logger.info("Lesen Teil 3 source: %s (context: %s)", source, selected_theme)
+
+    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
+    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
+
+    sanitized_items = []
+    for item in data["items"]:
+        sanitized_items.append({
+            "id": item["id"],
+            "question": item["question"],
+            "options": item["options"]
+        })
+
+    sanitized = {
+        "teil": 3,
+        "title": data.get("title", "Lesen Teil 3: E-Mail / Brief"),
+        "sender": data.get("sender", "Anna"),
+        "recipient": data.get("recipient", "Freund/Freundin"),
+        "subject": data.get("subject", "Neuigkeiten"),
+        "text": data["text"],
+        "items": sanitized_items,
+        "source": source
+    }
+    return sanitized, {"answer_key": answer_key, "explanations": explanations}
+
+
+async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Generate Lesen Teil 4 (6 Ads + 5 People Matching). Returns (sanitized_teil, answer_key)."""
+    fallback_choice = random.choice(POOL_LESEN_TEIL4)
+    source = "fallback"
+    try:
+        template = load_prompt("exam_lesen_teil4.txt")
+        raw = await asyncio.to_thread(generate, template, max_tokens=950, temperature=0.75)
+        parsed = _extract_json(raw)
+        if parsed and "ads" in parsed and len(parsed["ads"]) >= 5 and "items" in parsed and len(parsed["items"]) >= 4:
+            data = parsed
+            source = "llm"
+            if len(data["items"]) == 4:
+                data["items"].append(fallback_choice["items"][4])
+            else:
+                data["items"] = data["items"][:5]
+            if len(data["ads"]) < 6:
+                data["ads"] = fallback_choice["ads"]
+        else:
+            logger.warning("Lesen Teil 4: LLM output failed validation, using fallback")
+            data = fallback_choice
+    except Exception as e:
+        logger.warning("Error generating Lesen Teil 4, using fallback: %s", e)
+        data = fallback_choice
+
+    logger.info("Lesen Teil 4 source: %s", source)
+
+    answer_key = {str(item["id"]): item.get("answer_key", "x").lower() for item in data["items"]}
+    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
+
+    sanitized_items = []
+    for item in data["items"]:
+        sanitized_items.append({
+            "id": item["id"],
+            "person": item["person"]
+        })
+
+    sanitized = {
+        "teil": 4,
+        "title": data.get("title", "Lesen Teil 4: Anzeigen und Personen"),
+        "ads": data["ads"],
+        "items": sanitized_items,
+        "source": source
+    }
+    return sanitized, {"answer_key": answer_key, "explanations": explanations}
+
+
+async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
+    """Generate Schreiben Teil 1 (Informal SMS / Note)."""
+    fallback_choice = random.choice(POOL_SCHREIBEN_TEIL1)
+    source = "fallback"
+    try:
+        template = load_prompt("exam_schreiben_teil1.txt")
+        raw = await asyncio.to_thread(generate, template, max_tokens=300, temperature=0.75)
+        parsed = _extract_json(raw)
+        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) == 3:
+            logger.info("Schreiben Teil 1 source: llm")
+            parsed["source"] = "llm"
+            return parsed
+        logger.warning("Schreiben Teil 1: LLM output failed validation, using fallback")
+        fallback_copy = dict(fallback_choice)
+        fallback_copy["source"] = "fallback"
+        return fallback_copy
+    except Exception as e:
+        logger.warning("Error generating Schreiben Teil 1: %s", e)
+        fallback_copy = dict(fallback_choice)
+        fallback_copy["source"] = "fallback"
+        return fallback_copy
+
+
+async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
+    """Generate Schreiben Teil 2 (Formal / Semi-formal Email)."""
+    fallback_choice = random.choice(POOL_SCHREIBEN_TEIL2)
+    try:
+        template = load_prompt("exam_schreiben_teil2.txt")
+        raw = await asyncio.to_thread(generate, template, max_tokens=350, temperature=0.75)
+        parsed = _extract_json(raw)
+        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 3:
+            logger.info("Schreiben Teil 2 source: llm")
+            parsed["source"] = "llm"
+            return parsed
+        logger.warning("Schreiben Teil 2: LLM output failed validation, using fallback")
+        fallback_copy = dict(fallback_choice)
+        fallback_copy["source"] = "fallback"
+        return fallback_copy
+    except Exception as e:
+        logger.warning("Error generating Schreiben Teil 2: %s", e)
+        fallback_copy = dict(fallback_choice)
+        fallback_copy["source"] = "fallback"
+        return fallback_copy
 
 THEMES_TEIL2 = [
     "Großes Kaufhaus 'City-Center' mit 5 Etagen",
@@ -569,185 +842,4 @@ POOL_SCHREIBEN_TEIL2: List[Dict[str, Any]] = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# Generator Functions (Dispatched concurrently with dynamic theme injection)
-# ---------------------------------------------------------------------------
 
-async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 1 (Newspaper Article). Returns (sanitized_teil, answer_key)."""
-    selected_theme = random.choice(THEMES_TEIL1)
-    fallback_choice = random.choice(POOL_LESEN_TEIL1)
-    try:
-        template = load_prompt("exam_lesen_teil1.txt")
-        prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
-        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=200, temperature=0.75)
-        parsed = _extract_json(raw)
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) == 5:
-            data = parsed
-        else:
-            data = fallback_choice
-    except Exception as e:
-        logger.warning("Error generating Lesen Teil 1, using varied fallback: %s", e)
-        data = fallback_choice
-
-    # Extract answer key
-    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
-    # Build sanitized frontend data
-    sanitized_items = []
-    for item in data["items"]:
-        sanitized_items.append({
-            "id": item["id"],
-            "question": item["question"],
-            "options": item["options"]
-        })
-
-    sanitized = {
-        "teil": 1,
-        "title": data.get("title", "Lesen Teil 1: Zeitungsartikel"),
-        "text": data["text"],
-        "items": sanitized_items
-    }
-    return sanitized, {"answer_key": answer_key, "explanations": explanations}
-
-
-async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 2 (Kaufhaus Info Board). Returns (sanitized_teil, answer_key)."""
-    selected_theme = random.choice(THEMES_TEIL2)
-    fallback_choice = random.choice(POOL_LESEN_TEIL2)
-    try:
-        template = load_prompt("exam_lesen_teil2.txt")
-        prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
-        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=200, temperature=0.75)
-        parsed = _extract_json(raw)
-        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) == 5:
-            data = parsed
-        else:
-            data = fallback_choice
-    except Exception as e:
-        logger.warning("Error generating Lesen Teil 2, using varied fallback: %s", e)
-        data = fallback_choice
-
-    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
-    sanitized_items = []
-    for item in data["items"]:
-        sanitized_items.append({
-            "id": item["id"],
-            "question": item["question"],
-            "options": item["options"]
-        })
-
-    sanitized = {
-        "teil": 2,
-        "title": data.get("title", "Lesen Teil 2: Kaufhaus-Wegweiser"),
-        "directory": data["directory"],
-        "items": sanitized_items
-    }
-    return sanitized, {"answer_key": answer_key, "explanations": explanations}
-
-
-async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 3 (Personal Email). Returns (sanitized_teil, answer_key)."""
-    selected_theme = random.choice(THEMES_TEIL3)
-    fallback_choice = random.choice(POOL_LESEN_TEIL3)
-    try:
-        template = load_prompt("exam_lesen_teil3.txt")
-        prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
-        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=200, temperature=0.75)
-        parsed = _extract_json(raw)
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) == 5:
-            data = parsed
-        else:
-            data = fallback_choice
-    except Exception as e:
-        logger.warning("Error generating Lesen Teil 3, using varied fallback: %s", e)
-        data = fallback_choice
-
-    answer_key = {str(item["id"]): item.get("answer_key", "a").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
-    sanitized_items = []
-    for item in data["items"]:
-        sanitized_items.append({
-            "id": item["id"],
-            "question": item["question"],
-            "options": item["options"]
-        })
-
-    sanitized = {
-        "teil": 3,
-        "title": data.get("title", "Lesen Teil 3: E-Mail / Brief"),
-        "sender": data.get("sender", "Anna"),
-        "recipient": data.get("recipient", "Freund/Freundin"),
-        "subject": data.get("subject", "Neuigkeiten"),
-        "text": data["text"],
-        "items": sanitized_items
-    }
-    return sanitized, {"answer_key": answer_key, "explanations": explanations}
-
-
-async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 4 (6 Ads + 5 People Matching). Returns (sanitized_teil, answer_key)."""
-    fallback_choice = random.choice(POOL_LESEN_TEIL4)
-    try:
-        template = load_prompt("exam_lesen_teil4.txt")
-        raw = await asyncio.to_thread(generate, template, max_tokens=240, temperature=0.75)
-        parsed = _extract_json(raw)
-        if parsed and "ads" in parsed and len(parsed["ads"]) == 6 and "items" in parsed and len(parsed["items"]) == 5:
-            data = parsed
-        else:
-            data = fallback_choice
-    except Exception as e:
-        logger.warning("Error generating Lesen Teil 4, using varied fallback: %s", e)
-        data = fallback_choice
-
-    answer_key = {str(item["id"]): item.get("answer_key", "x").lower() for item in data["items"]}
-    explanations = {str(item["id"]): item.get("explanation", "") for item in data["items"]}
-
-    sanitized_items = []
-    for item in data["items"]:
-        sanitized_items.append({
-            "id": item["id"],
-            "person": item["person"]
-        })
-
-    sanitized = {
-        "teil": 4,
-        "title": data.get("title", "Lesen Teil 4: Anzeigen und Personen"),
-        "ads": data["ads"],
-        "items": sanitized_items
-    }
-    return sanitized, {"answer_key": answer_key, "explanations": explanations}
-
-
-async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
-    """Generate Schreiben Teil 1 (Informal SMS / Note)."""
-    fallback_choice = random.choice(POOL_SCHREIBEN_TEIL1)
-    try:
-        template = load_prompt("exam_schreiben_teil1.txt")
-        raw = await asyncio.to_thread(generate, template, max_tokens=180, temperature=0.75)
-        parsed = _extract_json(raw)
-        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) == 3:
-            return parsed
-        return fallback_choice
-    except Exception as e:
-        logger.warning("Error generating Schreiben Teil 1: %s", e)
-        return fallback_choice
-
-
-async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
-    """Generate Schreiben Teil 2 (Formal / Semi-formal Email)."""
-    fallback_choice = random.choice(POOL_SCHREIBEN_TEIL2)
-    try:
-        template = load_prompt("exam_schreiben_teil2.txt")
-        raw = await asyncio.to_thread(generate, template, max_tokens=200, temperature=0.75)
-        parsed = _extract_json(raw)
-        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 3:
-            return parsed
-        return fallback_choice
-    except Exception as e:
-        logger.warning("Error generating Schreiben Teil 2: %s", e)
-        return fallback_choice
