@@ -187,7 +187,7 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate, prompt_with_theme, max_tokens=550, temperature=0.75),
-            timeout=15.0
+            timeout=60.0
         )
         parsed = _extract_json(raw)
         if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
@@ -243,7 +243,7 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate, prompt_with_theme, max_tokens=500, temperature=0.75),
-            timeout=15.0
+            timeout=60.0
         )
         parsed = _extract_json(raw)
         if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
@@ -299,7 +299,7 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate, prompt_with_theme, max_tokens=550, temperature=0.75),
-            timeout=15.0
+            timeout=60.0
         )
         parsed = _extract_json(raw)
         if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
@@ -356,7 +356,7 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil4.txt")
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate, template, max_tokens=600, temperature=0.75),
-            timeout=15.0
+            timeout=60.0
         )
         parsed = _extract_json(raw)
         if parsed and "ads" in parsed and len(parsed["ads"]) >= 5 and "items" in parsed and len(parsed["items"]) >= 4:
@@ -411,7 +411,7 @@ async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
         template = load_prompt("exam_schreiben_teil1.txt")
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate, template, max_tokens=250, temperature=0.75),
-            timeout=10.0
+            timeout=45.0
         )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) == 3:
@@ -435,7 +435,7 @@ async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
         template = load_prompt("exam_schreiben_teil2.txt")
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate, template, max_tokens=300, temperature=0.75),
-            timeout=10.0
+            timeout=45.0
         )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 3:
