@@ -170,17 +170,22 @@ class ExamOrchestrator:
         aggregated_explanations = {}
 
         if mod == "lesen":
-            generators = [
-                (1, "teil1", generate_lesen_teil1),
-                (2, "teil2", generate_lesen_teil2),
-                (3, "teil3", generate_lesen_teil3),
-                (4, "teil4", generate_lesen_teil4),
+            gen_fns = {
+                "teil1": generate_lesen_teil1,
+                "teil2": generate_lesen_teil2,
+                "teil3": generate_lesen_teil3,
+                "teil4": generate_lesen_teil4,
+            }
+            tasks = [
+                (1, "teil1", asyncio.create_task(generate_lesen_teil1(level))),
+                (2, "teil2", asyncio.create_task(generate_lesen_teil2(level))),
+                (3, "teil3", asyncio.create_task(generate_lesen_teil3(level))),
+                (4, "teil4", asyncio.create_task(generate_lesen_teil4(level))),
             ]
 
-            for idx, t_name, gen_fn in generators:
-                gen_task = asyncio.create_task(gen_fn(level))
+            for idx, t_name, gen_task in tasks:
                 while not gen_task.done():
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(2)
                     if not gen_task.done():
                         yield {"type": "ping", "teil_index": idx}
 
@@ -188,7 +193,7 @@ class ExamOrchestrator:
                     t_data, t_key = await gen_task
                 except Exception as e:
                     logger.error("Streaming error in %s: %s", t_name, e)
-                    t_data, t_key = await gen_fn(level)
+                    t_data, t_key = await gen_fns[t_name](level)
 
                 teils[t_name] = t_data
                 aggregated_answer_key.update(t_key.get("answer_key", {}))
@@ -218,15 +223,18 @@ class ExamOrchestrator:
             )
 
         elif mod == "schreiben":
-            generators = [
-                (1, "teil1", generate_schreiben_teil1),
-                (2, "teil2", generate_schreiben_teil2),
+            gen_fns = {
+                "teil1": generate_schreiben_teil1,
+                "teil2": generate_schreiben_teil2,
+            }
+            tasks = [
+                (1, "teil1", asyncio.create_task(generate_schreiben_teil1(level))),
+                (2, "teil2", asyncio.create_task(generate_schreiben_teil2(level))),
             ]
 
-            for idx, t_name, gen_fn in generators:
-                gen_task = asyncio.create_task(gen_fn(level))
+            for idx, t_name, gen_task in tasks:
                 while not gen_task.done():
-                    await asyncio.sleep(5)
+                    await asyncio.sleep(2)
                     if not gen_task.done():
                         yield {"type": "ping", "teil_index": idx}
 
@@ -234,7 +242,7 @@ class ExamOrchestrator:
                     t_data = await gen_task
                 except Exception as e:
                     logger.error("Streaming error in %s: %s", t_name, e)
-                    t_data = await gen_fn(level)
+                    t_data = await gen_fns[t_name](level)
 
                 teils[t_name] = t_data
 
@@ -334,9 +342,12 @@ class ExamOrchestrator:
             raw_mod = raw_mod.get("value", "lesen")
         mod_str = str(raw_mod).lower().replace("exammodule.", "")
 
+        meta = self.storage.get_paper_meta(paper_id)
+        label = raw.get("label") or (meta.get("label") if meta else "") or f"{mod_str.capitalize()} Paper"
+
         return {
             "paper_id": raw.get("paper_id", paper_id),
-            "label": raw.get("label", ""),
+            "label": label,
             "module": mod_str,
             "level": raw.get("level", "A2"),
             "created_at": raw.get("created_at", ""),

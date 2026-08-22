@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import collections
 import json
 import logging
 import random
@@ -21,6 +22,28 @@ from .models import (
 )
 
 logger = logging.getLogger("lang_learn.exam.generators")
+
+# Ring buffer keeping track of recently selected pool items to prevent consecutive duplicates
+_recent_pool_history: Dict[str, collections.deque] = {
+    "lesen_t1": collections.deque(maxlen=4),
+    "lesen_t2": collections.deque(maxlen=4),
+    "lesen_t3": collections.deque(maxlen=4),
+    "lesen_t4": collections.deque(maxlen=3),
+    "schreiben_t1": collections.deque(maxlen=4),
+    "schreiben_t2": collections.deque(maxlen=4),
+}
+
+
+def _pick_distinct_pool_item(pool: List[Dict[str, Any]], key: str) -> Dict[str, Any]:
+    """Select a randomized item from the pool ensuring no recent repeats."""
+    history = _recent_pool_history.setdefault(key, collections.deque(maxlen=max(1, len(pool) - 1)))
+    available_indices = [i for i in range(len(pool)) if i not in history]
+    if not available_indices:
+        history.clear()
+        available_indices = list(range(len(pool)))
+    choice_idx = random.choice(available_indices)
+    history.append(choice_idx)
+    return pool[choice_idx]
 
 
 def _extract_json(text: str) -> Dict[str, Any] | None:
@@ -157,12 +180,15 @@ THEMES_TEIL3 = [
 async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Generate Lesen Teil 1 (Newspaper Article). Returns (sanitized_teil, answer_key)."""
     selected_theme = random.choice(THEMES_TEIL1)
-    fallback_choice = random.choice(POOL_LESEN_TEIL1)
+    fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL1, "lesen_t1")
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil1.txt")
         prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
-        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=850, temperature=0.75)
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=350, temperature=0.75),
+            timeout=10.0
+        )
         parsed = _extract_json(raw)
         if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
             data = parsed
@@ -172,13 +198,9 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
-            logger.warning(
-                "Lesen Teil 1: LLM output failed validation (parsed=%s, items=%d), using fallback",
-                parsed is not None, len(parsed.get("items", [])) if parsed else 0
-            )
             data = fallback_choice
     except Exception as e:
-        logger.warning("Error generating Lesen Teil 1, using fallback: %s", e)
+        logger.warning("Lesen Teil 1 using fallback: %s", e)
         data = fallback_choice
 
     logger.info("Lesen Teil 1 source: %s (theme: %s)", source, selected_theme)
@@ -214,12 +236,15 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Generate Lesen Teil 2 (Kaufhaus Info Board). Returns (sanitized_teil, answer_key)."""
     selected_theme = random.choice(THEMES_TEIL2)
-    fallback_choice = random.choice(POOL_LESEN_TEIL2)
+    fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL2, "lesen_t2")
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil2.txt")
         prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
-        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=850, temperature=0.75)
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=350, temperature=0.75),
+            timeout=10.0
+        )
         parsed = _extract_json(raw)
         if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
             data = parsed
@@ -229,10 +254,9 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
-            logger.warning("Lesen Teil 2: LLM output failed validation, using fallback")
             data = fallback_choice
     except Exception as e:
-        logger.warning("Error generating Lesen Teil 2, using fallback: %s", e)
+        logger.warning("Lesen Teil 2 using fallback: %s", e)
         data = fallback_choice
 
     logger.info("Lesen Teil 2 source: %s (venue: %s)", source, selected_theme)
@@ -268,12 +292,15 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Generate Lesen Teil 3 (Personal Email). Returns (sanitized_teil, answer_key)."""
     selected_theme = random.choice(THEMES_TEIL3)
-    fallback_choice = random.choice(POOL_LESEN_TEIL3)
+    fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL3, "lesen_t3")
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil3.txt")
         prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
-        raw = await asyncio.to_thread(generate, prompt_with_theme, max_tokens=850, temperature=0.75)
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=350, temperature=0.75),
+            timeout=10.0
+        )
         parsed = _extract_json(raw)
         if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
             data = parsed
@@ -283,10 +310,9 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
-            logger.warning("Lesen Teil 3: LLM output failed validation, using fallback")
             data = fallback_choice
     except Exception as e:
-        logger.warning("Error generating Lesen Teil 3, using fallback: %s", e)
+        logger.warning("Lesen Teil 3 using fallback: %s", e)
         data = fallback_choice
 
     logger.info("Lesen Teil 3 source: %s (context: %s)", source, selected_theme)
@@ -324,11 +350,14 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
 async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
     """Generate Lesen Teil 4 (6 Ads + 5 People Matching). Returns (sanitized_teil, answer_key)."""
-    fallback_choice = random.choice(POOL_LESEN_TEIL4)
+    fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL4, "lesen_t4")
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil4.txt")
-        raw = await asyncio.to_thread(generate, template, max_tokens=950, temperature=0.75)
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(generate, template, max_tokens=400, temperature=0.75),
+            timeout=10.0
+        )
         parsed = _extract_json(raw)
         if parsed and "ads" in parsed and len(parsed["ads"]) >= 5 and "items" in parsed and len(parsed["items"]) >= 4:
             data = parsed
@@ -340,10 +369,9 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             if len(data["ads"]) < 6:
                 data["ads"] = fallback_choice["ads"]
         else:
-            logger.warning("Lesen Teil 4: LLM output failed validation, using fallback")
             data = fallback_choice
     except Exception as e:
-        logger.warning("Error generating Lesen Teil 4, using fallback: %s", e)
+        logger.warning("Lesen Teil 4 using fallback: %s", e)
         data = fallback_choice
 
     logger.info("Lesen Teil 4 source: %s", source)
@@ -377,22 +405,24 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
 async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
     """Generate Schreiben Teil 1 (Informal SMS / Note)."""
-    fallback_choice = random.choice(POOL_SCHREIBEN_TEIL1)
+    fallback_choice = _pick_distinct_pool_item(POOL_SCHREIBEN_TEIL1, "schreiben_t1")
     source = "fallback"
     try:
         template = load_prompt("exam_schreiben_teil1.txt")
-        raw = await asyncio.to_thread(generate, template, max_tokens=300, temperature=0.75)
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(generate, template, max_tokens=220, temperature=0.75),
+            timeout=8.0
+        )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) == 3:
             logger.info("Schreiben Teil 1 source: llm")
             parsed["source"] = "llm"
             return parsed
-        logger.warning("Schreiben Teil 1: LLM output failed validation, using fallback")
         fallback_copy = dict(fallback_choice)
         fallback_copy["source"] = "fallback"
         return fallback_copy
     except Exception as e:
-        logger.warning("Error generating Schreiben Teil 1: %s", e)
+        logger.warning("Schreiben Teil 1 using fallback: %s", e)
         fallback_copy = dict(fallback_choice)
         fallback_copy["source"] = "fallback"
         return fallback_copy
@@ -400,21 +430,23 @@ async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
 
 async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
     """Generate Schreiben Teil 2 (Formal / Semi-formal Email)."""
-    fallback_choice = random.choice(POOL_SCHREIBEN_TEIL2)
+    fallback_choice = _pick_distinct_pool_item(POOL_SCHREIBEN_TEIL2, "schreiben_t2")
     try:
         template = load_prompt("exam_schreiben_teil2.txt")
-        raw = await asyncio.to_thread(generate, template, max_tokens=350, temperature=0.75)
+        raw = await asyncio.wait_for(
+            asyncio.to_thread(generate, template, max_tokens=250, temperature=0.75),
+            timeout=8.0
+        )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 3:
             logger.info("Schreiben Teil 2 source: llm")
             parsed["source"] = "llm"
             return parsed
-        logger.warning("Schreiben Teil 2: LLM output failed validation, using fallback")
         fallback_copy = dict(fallback_choice)
         fallback_copy["source"] = "fallback"
         return fallback_copy
     except Exception as e:
-        logger.warning("Error generating Schreiben Teil 2: %s", e)
+        logger.warning("Schreiben Teil 2 using fallback: %s", e)
         fallback_copy = dict(fallback_choice)
         fallback_copy["source"] = "fallback"
         return fallback_copy
@@ -560,6 +592,129 @@ POOL_LESEN_TEIL1: List[Dict[str, Any]] = [
                 "explanation": "Sie kehren in Berghütten ein und genießen regionale Spezialitäten."
             }
         ]
+    },
+    {
+        "title": "Deutschlandticket: Mit 49 Euro flexibel durch das ganze Land",
+        "text": "Seit der Einführung des Deutschlandtickets nutzen Millionen Menschen Busse und Regionalzüge viel häufiger. Für 49 Euro im Monat kann man im gesamten Nahverkehr flexibel fahren. Viele Pendler lassen das Auto in der Garage und fahren stressfrei mit dem Zug zur Arbeit. Auch für Wochenendausflüge in Nachbarstädte ist das Ticket sehr beliebt. Umweltverbände loben das Ticket, fordern aber mehr Züge und pünktlichere Verbindungen auf den Hauptstrecken.",
+        "items": [
+            {
+                "id": 1,
+                "question": "Wie viel kostet das Deutschlandticket pro Monat?",
+                "options": {"a": "49 Euro", "b": "100 Euro", "c": "Es ist kostenlos"},
+                "answer_key": "a",
+                "explanation": "Laut Text kostet das Ticket 49 Euro im Monat."
+            },
+            {
+                "id": 2,
+                "question": "In welchen Verkehrsmitteln gilt das Ticket?",
+                "options": {"a": "Nur in Flugzeugen", "b": "Im gesamten Nahverkehr mit Bus und Bahn", "c": "Nur in Taxis"},
+                "answer_key": "b",
+                "explanation": "Man kann im gesamten Nahverkehr (Busse und Regionalzüge) fahren."
+            },
+            {
+                "id": 3,
+                "question": "Was machen viele Pendler laut dem Artikel?",
+                "options": {"a": "Sie kaufen ein zweites Auto", "b": "Sie fahren mit dem Zug zur Arbeit", "c": "Sie arbeiten nur noch zu Hause"},
+                "answer_key": "b",
+                "explanation": "Viele Pendler lassen das Auto stehen und fahren mit dem Zug zur Arbeit."
+            },
+            {
+                "id": 4,
+                "question": "Wofür wird das Ticket am Wochenende genutzt?",
+                "options": {"a": "Für Ausflüge in Nachbarstädte", "b": "Für Flugreisen ins Ausland", "c": "Gar nicht"},
+                "answer_key": "a",
+                "explanation": "Auch für Wochenendausflüge in Nachbarstädte ist das Ticket sehr beliebt."
+            },
+            {
+                "id": 5,
+                "question": "Was fordern Umweltverbände für die Zukunft?",
+                "options": {"a": "Höhere Ticketpreise", "b": "Mehr Züge und pünktlichere Verbindungen", "c": "Weniger Bahnhöfe"},
+                "answer_key": "b",
+                "explanation": "Umweltverbände fordern mehr Züge und pünktlichere Verbindungen."
+            }
+        ]
+    },
+    {
+        "title": "Sprachen lernen im Tandem: Neue Freunde und lebendige Gespräche",
+        "text": "Immer mehr Sprachbegeisterte treffen sich in gemütlichen Cafés zum sogenannten Sprachtandem. Das Prinzip ist einfach: Zwei Personen mit unterschiedlichen Muttersprachen helfen sich gegenseitig beim Lernen. Eine Stunde spricht man Deutsch, die nächste Stunde zum Beispiel Spanisch oder Italienisch. Im Gegensatz zum traditionellen Unterricht lernt man hier besonders die Alltagssprache, Redewendungen und die Kultur des Partnerlandes kennen.",
+        "items": [
+            {
+                "id": 1,
+                "question": "Wo treffen sich viele Menschen zum Sprachtandem?",
+                "options": {"a": "In großen Bibliotheken", "b": "In gemütlichen Cafés", "c": "Im Reisebüro"},
+                "answer_key": "b",
+                "explanation": "Sie treffen sich in gemütlichen Cafés."
+            },
+            {
+                "id": 2,
+                "question": "Wie funktioniert das Sprachtandem?",
+                "options": {"a": "Ein Lehrer gibt Noten", "b": "Zwei Personen mit verschiedenen Muttersprachen helfen sich", "c": "Man lernt nur Grammatik"},
+                "answer_key": "b",
+                "explanation": "Zwei Personen mit unterschiedlichen Muttersprachen helfen sich gegenseitig."
+            },
+            {
+                "id": 3,
+                "question": "Wie wird die Zeit beim Tandem meistens aufgeteilt?",
+                "options": {"a": "Jede Sprache wird jeweils eine Stunde gesprochen", "b": "Nur Deutsch wird gesprochen", "c": "Man spricht nur 5 Minuten"},
+                "answer_key": "a",
+                "explanation": "Eine Stunde spricht man Deutsch, die nächste Stunde die andere Sprache."
+            },
+            {
+                "id": 4,
+                "question": "Was lernt man beim Tandem besonders gut?",
+                "options": {"a": "Schwere Prüfungsregeln", "b": "Alltagssprache und Redewendungen", "c": "Alte Gedichte"},
+                "answer_key": "b",
+                "explanation": "Man lernt besonders die Alltagssprache, Redewendungen und die Kultur kennen."
+            },
+            {
+                "id": 5,
+                "question": "Was ist der Vorteil gegenüber traditionellem Unterricht?",
+                "options": {"a": "Es ist teurer", "b": "Man lernt lebendiger und ungezwungener", "c": "Es gibt viele Hausaufgaben"},
+                "answer_key": "b",
+                "explanation": "Man lernt in entspannter Atmosphäre von Muttersprachlern."
+            }
+        ]
+    },
+    {
+        "title": "Flohmärkte am Sonntag: Schätze finden und die Umwelt schonen",
+        "text": "An sonnigen Sonntagen zieht es Tausende Menschen auf die großen Flohmärkte der Stadt. Zwischen alten Büchern, Schallplatten, Fahrrädern und Vintage-Kleidung kann man echte Schnäppchen entdecken. Viele Besucher schätzen die besondere Atmosphäre beim Stöbern und Handeln. Der Kauf gebrauchter Dinge schont nicht nur den Geldbeutel, sondern ist auch nachhaltig und spart wertvolle Ressourcen für unsere Umwelt.",
+        "items": [
+            {
+                "id": 1,
+                "question": "Wann besuchen viele Menschen den Flohmarkt?",
+                "options": {"a": "An sonnigen Sonntagen", "b": "Nur montags früh", "c": "Mitten in der Nacht"},
+                "answer_key": "a",
+                "explanation": "Laut Text zieht es die Menschen an sonnigen Sonntagen auf den Flohmarkt."
+            },
+            {
+                "id": 2,
+                "question": "Was kann man auf dem Flohmarkt kaufen?",
+                "options": {"a": "Nur neue Luxusautos", "b": "Bücher, Kleidung, Fahrräder und Schallplatten", "c": "Ausschließlich Lebensmittel"},
+                "answer_key": "b",
+                "explanation": "Man findet alte Bücher, Schallplatten, Fahrräder und Vintage-Kleidung."
+            },
+            {
+                "id": 3,
+                "question": "Was macht den Besuchern besonders viel Spaß?",
+                "options": {"a": "Das Stöbern und Handeln", "b": "Die laute Musik", "c": "Die hohen Preise"},
+                "answer_key": "a",
+                "explanation": "Viele Besucher schätzen die besondere Atmosphäre beim Stöbern und Handeln."
+            },
+            {
+                "id": 4,
+                "question": "Warum ist der Kauf gebrauchter Dinge gut für die Umwelt?",
+                "options": {"a": "Weil man weniger Abfall produziert und Ressourcen spart", "b": "Weil Flohmärkte im Wald liegen", "c": "Weil man kein Geld braucht"},
+                "answer_key": "a",
+                "explanation": "Es ist nachhaltig und spart wertvolle Ressourcen."
+            },
+            {
+                "id": 5,
+                "question": "Welchen Vorteil hat der Flohmarkt für das eigene Budget?",
+                "options": {"a": "Er kostet viel Eintritt", "b": "Man schont den Geldbeutel durch günstige Preise", "c": "Man muss Schulden machen"},
+                "answer_key": "b",
+                "explanation": "Der Kauf gebrauchter Dinge schont den Geldbeutel."
+            }
+        ]
     }
 ]
 
@@ -656,6 +811,99 @@ POOL_LESEN_TEIL2: List[Dict[str, Any]] = [
                 "explanation": "Das Blumengeschäft befindet sich im Untergeschoss."
             }
         ]
+    },
+    {
+        "title": "Einkaufszentrum am Hauptbahnhof",
+        "directory": [
+            {"floor": "3. Etage", "departments": "Zahnarztpraxis, Physiotherapie, Reisezentrum DB, Fundbüro"},
+            {"floor": "2. Etage", "departments": "Sportartikel, Wanderausrüstung, Fahrräder, Campingbedarf"},
+            {"floor": "1. Etage", "departments": "Elektronikfachmarkt, Handyreparatur, Kameras, Videospiele"},
+            {"floor": "Erdgeschoss", "departments": "Bäckerei, Zeitschriften & Zeitungen, Café, Geldautomat"},
+            {"floor": "Untergeschoss", "departments": "Schließfächer, Apotheke, Drogerie, Bio-Supermarkt"}
+        ],
+        "items": [
+            {
+                "id": 6,
+                "question": "Sie möchten Ihr Gepäck für ein paar Stunden sicher einschließen.",
+                "options": {"a": "Untergeschoss", "b": "1. Etage", "c": "3. Etage"},
+                "answer_key": "a",
+                "explanation": "Schließfächer befinden sich im Untergeschoss."
+            },
+            {
+                "id": 7,
+                "question": "Sie brauchen ein Zugticket nach Berlin und Beratung.",
+                "options": {"a": "3. Etage", "b": "Erdgeschoss", "c": "2. Etage"},
+                "answer_key": "a",
+                "explanation": "Das DB Reisezentrum befindet sich in der 3. Etage."
+            },
+            {
+                "id": 8,
+                "question": "Das Display Ihres Smartphones ist kaputt und muss repariert werden.",
+                "options": {"a": "Erdgeschoss", "b": "1. Etage", "c": "Anderes Stockwerk"},
+                "answer_key": "b",
+                "explanation": "Die Handyreparatur befindet sich in der 1. Etage."
+            },
+            {
+                "id": 9,
+                "question": "Sie möchten vor der Zugfahrt einen frischen Kaffee und Brezeln kaufen.",
+                "options": {"a": "2. Etage", "b": "Erdgeschoss", "c": "3. Etage"},
+                "answer_key": "b",
+                "explanation": "Bäckerei und Café sind im Erdgeschoss."
+            },
+            {
+                "id": 10,
+                "question": "Sie suchen ein neues Zelt für einen Wochenendausflug in die Natur.",
+                "options": {"a": "2. Etage", "b": "Untergeschoss", "c": "Anderes Stockwerk"},
+                "answer_key": "a",
+                "explanation": "Wanderausrüstung und Campingbedarf befinden sich in der 2. Etage."
+            }
+        ]
+    },
+    {
+        "title": "Bürger- und Kulturzentrum am Marktplatz",
+        "directory": [
+            {"floor": "3. Obergeschoss", "departments": "Stadtbibliothek, Lesesaal, Kostenloses WLAN, Hörbuchausleihe"},
+            {"floor": "2. Obergeschoss", "departments": "Volkshochschule (VHS), Sprachkurse, Computerräume, Beratungsbüro"},
+            {"floor": "1. Obergeschoss", "departments": "Bürgeramt, Passstelle, Wohnsitzanmeldung, Führerscheinstelle"},
+            {"floor": "Erdgeschoss", "departments": "Theaterkasse, Tourist-Information, Café am Markt, Stadtplanverkauf"}
+        ],
+        "items": [
+            {
+                "id": 6,
+                "question": "Sie sind neu in die Stadt gezogen und müssen Ihren Wohnsitz anmelden.",
+                "options": {"a": "1. Obergeschoss", "b": "3. Obergeschoss", "c": "Anderes Stockwerk"},
+                "answer_key": "a",
+                "explanation": "Bürgeramt und Wohnsitzanmeldung befinden sich im 1. Obergeschoss."
+            },
+            {
+                "id": 7,
+                "question": "Sie möchten sich für einen Abend-Deutschkurs anmelden.",
+                "options": {"a": "Erdgeschoss", "b": "2. Obergeschoss", "c": "3. Obergeschoss"},
+                "answer_key": "b",
+                "explanation": "Die Volkshochschule mit Sprachkursen befindet sich im 2. Obergeschoss."
+            },
+            {
+                "id": 8,
+                "question": "Sie möchten Tickets für das Konzert am Samstagabend kaufen.",
+                "options": {"a": "Erdgeschoss", "b": "1. Obergeschoss", "c": "2. Obergeschoss"},
+                "answer_key": "a",
+                "explanation": "Die Theaterkasse befindet sich im Erdgeschoss."
+            },
+            {
+                "id": 9,
+                "question": "Sie suchen einen ruhigen Platz, um ein Buch zu lesen und im Internet zu recherchieren.",
+                "options": {"a": "1. Obergeschoss", "b": "3. Obergeschoss", "c": "Anderes Stockwerk"},
+                "answer_key": "b",
+                "explanation": "Stadtbibliothek und Lesesaal befinden sich im 3. Obergeschoss."
+            },
+            {
+                "id": 10,
+                "question": "Sie brauchen einen neuen Reisepass für Ihren Urlaub.",
+                "options": {"a": "1. Obergeschoss", "b": "2. Obergeschoss", "c": "Erdgeschoss"},
+                "answer_key": "a",
+                "explanation": "Das Bürgeramt mit Passstelle ist im 1. Obergeschoss."
+            }
+        ]
     }
 ]
 
@@ -745,6 +993,49 @@ POOL_LESEN_TEIL3: List[Dict[str, Any]] = [
                 "explanation": "Im Text steht: 'Wir treffen uns direkt am Parkplatz vor dem Kiosk'."
             }
         ]
+    },
+    {
+        "sender": "Maximilian Braun",
+        "recipient": "Julia",
+        "subject": "Wochenendausflug in den Harz",
+        "text": "Liebe Julia,\nich habe tolle Neuigkeiten: Für unseren Ausflug in den Harz am kommenden Wochenende habe ich schon eine gemütliche Ferienhütte reserviert. Wir fahren am Samstagmorgen um 8:15 Uhr mit dem Regionalzug ab Hauptbahnhof. Bitte denk an feste Wanderschuhe und eine Regenjacke, da das Wetter in den Bergen schnell wechseln kann. Das Bahnticket habe ich bereits für uns beide online gekauft. Melde dich kurz, ob die Uhrzeit für dich passt!\nViele Grüße,\nMaximilian",
+        "items": [
+            {
+                "id": 11,
+                "question": "Was hat Maximilian bereits für den Ausflug organisiert?",
+                "options": {"a": "Ein Luxushotel gebucht", "b": "Eine Ferienhütte reserviert und Tickets gekauft", "c": "Ein Auto gemietet"},
+                "answer_key": "b",
+                "explanation": "Er hat die Ferienhütte reserviert und das Bahnticket gekauft."
+            },
+            {
+                "id": 12,
+                "question": "Wann fährt der Zug am Samstag ab?",
+                "options": {"a": "Um 8:15 Uhr", "b": "Um 12:00 Uhr", "c": "Erst am Nachmittag"},
+                "answer_key": "a",
+                "explanation": "Im Text steht: 'am Samstagmorgen um 8:15 Uhr'."
+            },
+            {
+                "id": 13,
+                "question": "Welche Kleidung empfiehlt Maximilian Julia?",
+                "options": {"a": "Badekleidung", "b": "Feste Wanderschuhe und eine Regenjacke", "c": "Nur ein Sommerkleid"},
+                "answer_key": "b",
+                "explanation": "Er bittet sie, an feste Wanderschuhe und eine Regenjacke zu denken."
+            },
+            {
+                "id": 14,
+                "question": "Wie reisen Maximilian und Julia in den Harz?",
+                "options": {"a": "Mit dem Flugzeug", "b": "Mit dem Regionalzug ab Hauptbahnhof", "c": "Mit dem Fahrrad"},
+                "answer_key": "b",
+                "explanation": "Sie fahren mit dem Regionalzug ab Hauptbahnhof."
+            },
+            {
+                "id": 15,
+                "question": "Worum bittet Maximilian Julia am Ende?",
+                "options": {"a": "Um eine kurze Rückmeldung zur Abfahrtszeit", "b": "Ihm Geld zu überweisen", "c": "Essen für alle zu kochen"},
+                "answer_key": "a",
+                "explanation": "Er schreibt: 'Melde dich kurz, ob die Uhrzeit für dich passt!'."
+            }
+        ]
     }
 ]
 
@@ -832,13 +1123,55 @@ POOL_LESEN_TEIL4: List[Dict[str, Any]] = [
                 "explanation": "Keine der Anzeigen bietet Standardtanzkurse an, daher ist die Antwort 'x'."
             }
         ]
+    },
+    {
+        "ads": [
+            {"id": "a", "title": "Salsa & Bachata Tanzkurs", "text": "Neue Anfängerkurse jeden Freitag ab 19 Uhr. Kein fester Tanzpartner erforderlich! www.salsa-club.de"},
+            {"id": "b", "title": "Mathematik-Nachhilfe bis Klasse 10", "text": "Geduldiger Student hilft bei Prüfungsvorbereitung und Hausaufgaben. Günstige Tarife. Tel: 0162-443322"},
+            {"id": "c", "title": "Campingzelt für 4 Personen zu vermieten", "text": "Großes wasserdichtes Familienzelt inklusive Luftmatratzen für Wochenenden. 30 Euro/Wochenende. Tel: 0173-889900"},
+            {"id": "d", "title": "Fotokurs für Einsteiger", "text": "Lerne die Grundlagen der digitalen Spiegelreflexkamera am Wochenende in der Natur. www.fotowelt-online.de"},
+            {"id": "e", "title": "Gepflegter Kleinwagen VW Polo", "text": "Baujahr 2018, wenig Kilometer, TÜV neu, sparsamer Benzinverbrauch. Preis: 5.800 Euro. Tel: 0157-123456"},
+            {"id": "f", "title": "Gartenhilfe gesucht", "text": "Suchen zuverlässige Unterstützung für Rasenmähen und Hecke schneiden 2x im Monat. 15 Euro/Stunde. Tel: 0178-654321"}
+        ],
+        "items": [
+            {
+                "id": 16,
+                "person": "Tim sucht ein großes Zelt für einen Wochenendausflug an den See mit Freunden.",
+                "answer_key": "c",
+                "explanation": "Anzeige C vermietet ein 4-Personen-Familienzelt für Wochenenden."
+            },
+            {
+                "id": 17,
+                "person": "Elena möchte gerne tanzen lernen, hat aber im Moment keinen festen Tanzpartner.",
+                "answer_key": "a",
+                "explanation": "Anzeige A bietet Salsa-Kurse an, bei denen kein fester Partner nötig ist."
+            },
+            {
+                "id": 18,
+                "person": "Familie Berger braucht Hilfe beim Rasenmähen in ihrem großen Garten.",
+                "answer_key": "f",
+                "explanation": "Anzeige F sucht Gartenhilfe für Rasenmähen und Hecke schneiden."
+            },
+            {
+                "id": 19,
+                "person": "Simon hat eine neue Kamera bekommen und möchte lernen, wie man schöne Naturfotos macht.",
+                "answer_key": "d",
+                "explanation": "Anzeige D bietet Fotokurse für Einsteiger in der Natur an."
+            },
+            {
+                "id": 20,
+                "person": "Laura sucht einen Reitkurs für Anfänger auf einem Reiterhof.",
+                "answer_key": "x",
+                "explanation": "Keine der Anzeigen bietet Reitkurse an, daher ist die Antwort 'x'."
+            }
+        ]
     }
 ]
 
 POOL_SCHREIBEN_TEIL1: List[Dict[str, Any]] = [
     {
         "teil": 1,
-        "title": "Schreiben Teil 1: Kurze Mitteilung (SMS / Nachricht)",
+        "title": "Schreiben Teil 1: Verspätung ankündigen",
         "scenario_german": "Sie können heute Abend nicht pünktlich zum Treffen mit Ihrem Freund Michael kommen.",
         "instructions_german": "Schreiben Sie eine kurze Nachricht an Michael (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
         "bullet_points": [
@@ -874,13 +1207,39 @@ POOL_SCHREIBEN_TEIL1: List[Dict[str, Any]] = [
         ],
         "target_word_count": "20–30 Wörter",
         "tips_english": "Write an informal note (20-30 words) cancelling training, stating why, and rescheduling."
+    },
+    {
+        "teil": 1,
+        "title": "Schreiben Teil 1: Hilfe beim Umzug erbitten",
+        "scenario_german": "Sie ziehen am kommenden Samstag in eine neue Wohnung und brauchen Unterstützung beim Tragen von Kartons.",
+        "instructions_german": "Schreiben Sie eine Nachricht an Ihre Freundin Julia (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
+        "bullet_points": [
+            "Erklären Sie, dass Sie am Samstag umziehen.",
+            "Bitten Sie Julia höflich um Hilfe beim Kistentragen.",
+            "Laden Sie sie als Dankeschön zum Pizzaessen ein."
+        ],
+        "target_word_count": "20–30 Wörter",
+        "tips_english": "Write a short note asking for moving help and inviting for pizza afterwards."
+    },
+    {
+        "teil": 1,
+        "title": "Schreiben Teil 1: Schlüssel an Nachbarn übergeben",
+        "scenario_german": "Sie fahren für eine Woche in den Urlaub und möchten Ihren Wohnungsschlüssel Ihrem Nachbarn Herrn Schmidt geben.",
+        "instructions_german": "Schreiben Sie eine Nachricht an Herrn Schmidt (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
+        "bullet_points": [
+            "Informieren Sie über Ihren Urlaub ab Montag.",
+            "Bitten Sie ihn, nach der Post und den Blumen zu schauen.",
+            "Schlagen Sie vor, wann Sie den Schlüssel vorbeibringen können."
+        ],
+        "target_word_count": "20–30 Wörter",
+        "tips_english": "Write a friendly note regarding apartment keys, watering plants, and handing over the key."
     }
 ]
 
 POOL_SCHREIBEN_TEIL2: List[Dict[str, Any]] = [
     {
         "teil": 2,
-        "title": "Schreiben Teil 2: Formelle / Halbformelle E-Mail",
+        "title": "Schreiben Teil 2: Sprachkurs anfragen",
         "scenario_german": "Sie möchten im nächsten Monat an einer Sprachschule in Heidelberg einen Deutschkurs (Stufe B1) besuchen. Schreiben Sie an die Sprachschule.",
         "instructions_german": "Schreiben Sie eine E-Mail an Frau Weber von der Sprachschule (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
         "bullet_points": [
@@ -919,6 +1278,34 @@ POOL_SCHREIBEN_TEIL2: List[Dict[str, Any]] = [
         ],
         "target_word_count": "30–40 Wörter",
         "tips_english": "Write a formal apartment inquiry email to Herr Müller introducing yourself and requesting a viewing appointment."
+    },
+    {
+        "teil": 2,
+        "title": "Schreiben Teil 2: Reparaturmeldung an Hausverwaltung",
+        "scenario_german": "In Ihrer Mietwohnung ist seit zwei Tagen die Heizung im Wohnzimmer defekt. Schreiben Sie an die Hausverwaltung.",
+        "instructions_german": "Schreiben Sie eine formelle E-Mail an die Hausverwaltung Schneider (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
+        "bullet_points": [
+            "Problem mit der Heizung beschreiben",
+            "Erklären, wie kalt es in der Wohnung ist",
+            "Um eine schnelle Reparatur bitten",
+            "Erreichbarkeit für den Handwerker angeben"
+        ],
+        "target_word_count": "30–40 Wörter",
+        "tips_english": "Write a formal email reporting a broken heating system and requesting urgent repair."
+    },
+    {
+        "teil": 2,
+        "title": "Schreiben Teil 2: Bewerbung für Minijob im Café",
+        "scenario_german": "Sie suchen einen Nebenjob am Wochenende und haben einen Aushang für eine Servicekraft im 'Café Central' gesehen.",
+        "instructions_german": "Schreiben Sie eine E-Mail an den Café-Inhaber, Herrn Fischer (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
+        "bullet_points": [
+            "Grund für die Bewerbung nennen",
+            "Eigene Erfahrung in der Gastronomie erwähnen",
+            "Verfügbarkeit am Wochenende angeben",
+            "Formelle Anrede und Schlussformel"
+        ],
+        "target_word_count": "30–40 Wörter",
+        "tips_english": "Write a formal job application email to Herr Fischer expressing interest in the weekend service job."
     }
 ]
 

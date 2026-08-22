@@ -14,6 +14,39 @@ from ..config import REDIS_HOST, REDIS_PORT
 logger = logging.getLogger("lang_learn.exam.storage")
 
 
+def _compute_paper_fingerprint(paper_dict: Dict[str, Any]) -> str:
+    """Compute a deterministic hash of the core content of an exam paper."""
+    import hashlib
+
+    raw_mod = paper_dict.get("module", "lesen")
+    if isinstance(raw_mod, dict):
+        raw_mod = raw_mod.get("value", "lesen")
+    mod_str = str(raw_mod).lower().replace("exammodule.", "")
+
+    teils = paper_dict.get("teils") or {}
+    signatures = [mod_str]
+
+    if mod_str == "lesen":
+        t1 = teils.get("teil1") or {}
+        signatures.append(str(t1.get("text", "")).strip()[:100])
+        t2 = teils.get("teil2") or {}
+        signatures.append(str(t2.get("title", "")).strip())
+        t3 = teils.get("teil3") or {}
+        signatures.append(str(t3.get("text", "")).strip()[:100])
+        t4 = teils.get("teil4") or {}
+        signatures.append(str(t4.get("title", "")).strip())
+    elif mod_str == "schreiben":
+        t1 = teils.get("teil1") or {}
+        signatures.append(str(t1.get("scenario_german", "")).strip()[:100])
+        t2 = teils.get("teil2") or {}
+        signatures.append(str(t2.get("scenario_german", "")).strip()[:100])
+    else:
+        signatures.append(json.dumps(teils, sort_keys=True))
+
+    combined = "||".join(signatures)
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:24]
+
+
 class ExamStorage:
     """Manages persistence of exam papers, answer keys, and submissions in Redis."""
 
@@ -42,14 +75,32 @@ class ExamStorage:
     def store_paper(self, paper_id: str, paper_dict: Dict[str, Any], ttl: int = 604800) -> str:
         """Store exam paper with answer key in Redis (7 days TTL).
 
-        Generates and indexes an auto-incrementing human-readable label (e.g. 'Lesen Paper 1').
-        Returns the assigned label.
+        Guarantees deduplication: if a paper with identical content was already stored,
+        it skips creating a duplicate entry and reuses the existing paper.
         """
         raw_mod = paper_dict.get("module", "lesen")
         if isinstance(raw_mod, dict):
             raw_mod = raw_mod.get("value", "lesen")
         mod_str = str(raw_mod).lower().replace("exammodule.", "")
 
+        fp = _compute_paper_fingerprint(paper_dict)
+        fp_key = f"exam:paper:fp:{mod_str}:{fp}"
+
+        if self.redis_client is not None:
+            try:
+                existing_pid = self.redis_client.get(fp_key)
+                if existing_pid:
+                    existing_meta = self.redis_client.hgetall(f"exam:paper:meta:{existing_pid}")
+                    if existing_meta and "label" in existing_meta:
+                        existing_label = existing_meta["label"]
+                        logger.info("Exam content already exists as [%s] (ID: %s). Deduplicating.", existing_label, existing_pid)
+                        paper_dict["paper_id"] = existing_pid
+                        paper_dict["label"] = existing_label
+                        return existing_label
+            except Exception as e:
+                logger.warning("Error checking paper fingerprint in Redis: %s", e)
+
+        # Generate new sequential label
         counter_key = f"exam:paper_counter:{mod_str}"
         seq_num = 1
         if self.redis_client is not None:
@@ -81,6 +132,7 @@ class ExamStorage:
             "duration_minutes": str(paper_dict.get("duration_minutes", 30)),
             "total_points": str(paper_dict.get("total_points", 25.0)),
             "status": "pending",
+            "fingerprint": fp,
         }
 
         if self.redis_client is not None:
@@ -89,12 +141,14 @@ class ExamStorage:
                 self.redis_client.setex(key, ttl, serialized)
                 # 2. Store alias key for direct human-readable lookup
                 self.redis_client.setex(alias_key, ttl, paper_id)
-                # 3. Store paper metadata
+                # 3. Store fingerprint for deduplication
+                self.redis_client.setex(fp_key, ttl, paper_id)
+                # 4. Store paper metadata
                 self.redis_client.hset(meta_key, mapping=meta)
                 self.redis_client.expire(meta_key, ttl)
-                # 4. Add to sorted index
+                # 5. Add to sorted index
                 self.redis_client.zadd("exam:papers:index", {paper_id: now_ts})
-                logger.info("Stored exam paper in Redis under key: %s (label: %s)", key, label)
+                logger.info("Stored unique exam paper in Redis under key: %s (label: %s, fp: %s)", key, label, fp)
             except Exception as e:
                 logger.error("Failed to store paper in Redis: %s", e)
 
@@ -195,6 +249,18 @@ class ExamStorage:
                 break
         return papers
 
+    def get_paper_meta(self, paper_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve metadata dictionary for a paper."""
+        meta_key = f"exam:paper:meta:{paper_id}"
+        if self.redis_client is not None:
+            try:
+                meta = self.redis_client.hgetall(meta_key)
+                if meta:
+                    return meta
+            except Exception as e:
+                logger.error("Failed to fetch paper meta from Redis: %s", e)
+        return self._memory_paper_meta.get(paper_id)
+
     def mark_paper_completed(self, paper_id: str) -> None:
         """Mark a saved paper as completed."""
         meta_key = f"exam:paper:meta:{paper_id}"
@@ -217,6 +283,9 @@ class ExamStorage:
                 if meta and "label" in meta:
                     alias_key = f"exam:paper:by_label:{meta['label'].lower().replace(' ', '_')}"
                     self.redis_client.delete(alias_key)
+                if meta and "fingerprint" in meta:
+                    fp_key = f"exam:paper:fp:{meta.get('module', 'lesen')}:{meta['fingerprint']}"
+                    self.redis_client.delete(fp_key)
                 self.redis_client.delete(key)
                 self.redis_client.delete(meta_key)
                 self.redis_client.zrem("exam:papers:index", paper_id)
