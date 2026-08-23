@@ -253,7 +253,8 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         )
         logger.info("Lesen Teil 1 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3:
+        text_word_count = len(parsed.get("text", "").split()) if parsed else 0
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 100:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -261,6 +262,7 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
+            logger.info("Lesen Teil 1 LLM rejected: text=%d words (need 100+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 1 using fallback: %s", e)
@@ -310,7 +312,8 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         )
         logger.info("Lesen Teil 2 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 3:
+        dir_count = len(parsed.get("directory", [])) if parsed else 0
+        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and dir_count >= 4:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -318,6 +321,7 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
+            logger.info("Lesen Teil 2 LLM rejected: floors=%d (need 4+), items=%d", dir_count, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 2 using fallback: %s", e)
@@ -367,7 +371,8 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         )
         logger.info("Lesen Teil 3 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3:
+        text_word_count = len(parsed.get("text", "").split()) if parsed else 0
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 100:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -375,6 +380,7 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
+            logger.info("Lesen Teil 3 LLM rejected: text=%d words (need 100+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 3 using fallback: %s", e)
@@ -425,7 +431,10 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         )
         logger.info("Lesen Teil 4 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "ads" in parsed and len(parsed["ads"]) >= 3 and "items" in parsed and len(parsed["items"]) >= 3:
+        ads_count = len(parsed.get("ads", [])) if parsed else 0
+        # Check ad descriptions are substantial (not just 1-line stubs)
+        ads_quality_ok = ads_count >= 5 and all(len(str(ad.get("text", ""))) >= 20 for ad in parsed.get("ads", [])[:5]) if parsed else False
+        if parsed and ads_quality_ok and "items" in parsed and len(parsed["items"]) >= 3:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -435,6 +444,7 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             if len(data["ads"]) < 6:
                 data["ads"] = fallback_choice["ads"]
         else:
+            logger.info("Lesen Teil 4 LLM rejected: ads=%d, quality_ok=%s, items=%d", ads_count, ads_quality_ok, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 4 using fallback: %s", e)
