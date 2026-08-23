@@ -59,6 +59,21 @@ def _resolve_backend() -> str:
 
 MODEL_PATH: str = os.getenv("LANG_LEARN_MODEL_PATH", _default_model_path())
 
+# Exam generation uses a larger model (4B) for higher-quality structured output
+def _default_exam_model_path() -> str:
+    """Resolve the exam model path, defaulting to the 4B GGUF model."""
+    exam_dir = str(REPO_ROOT / "models" / "gemma-q4")
+    backend = _resolve_backend()
+    if backend == "llamacpp" and Path(exam_dir).is_dir():
+        # Prefer the 4B model for exams
+        for pattern in ["*E4B*Q4*.gguf", "*4b*q4*.gguf", "*.gguf"]:
+            gguf_files = glob.glob(os.path.join(exam_dir, pattern))
+            if gguf_files:
+                return gguf_files[0]
+    return MODEL_PATH  # fallback to the default model
+
+EXAM_MODEL_PATH: str = os.getenv("LANG_LEARN_EXAM_MODEL_PATH", _default_exam_model_path())
+
 MAX_TOKENS: int = int(os.getenv("LANG_LEARN_MAX_TOKENS", "350"))
 TEMPERATURE: float = float(os.getenv("LANG_LEARN_TEMPERATURE", "0.5"))
 

@@ -11,7 +11,7 @@ import re
 from typing import Any, Dict, List, Tuple
 
 from ..prompts import load_prompt
-from ..runner import generate
+from ..runner import generate_exam
 from .models import (
     LesenTeil1,
     LesenTeil2,
@@ -248,7 +248,7 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil1.txt")
         prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
             timeout=120.0
         )
         logger.info("Lesen Teil 1 raw output: %d chars", len(raw))
@@ -307,7 +307,7 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil2.txt")
         prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
             timeout=120.0
         )
         logger.info("Lesen Teil 2 raw output: %d chars", len(raw))
@@ -366,7 +366,7 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil3.txt")
         prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
             timeout=120.0
         )
         logger.info("Lesen Teil 3 raw output: %d chars", len(raw))
@@ -426,7 +426,7 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
     try:
         template = load_prompt("exam_lesen_teil4.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=1200, temperature=0.75),
+            asyncio.to_thread(generate_exam, template, max_tokens=1200, temperature=0.75),
             timeout=120.0
         )
         logger.info("Lesen Teil 4 raw output: %d chars", len(raw))
@@ -486,7 +486,7 @@ async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
     try:
         template = load_prompt("exam_schreiben_teil1.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=512, temperature=0.75),
+            asyncio.to_thread(generate_exam, template, max_tokens=512, temperature=0.75),
             timeout=90.0
         )
         parsed = _extract_json(raw)
@@ -510,7 +510,7 @@ async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
     try:
         template = load_prompt("exam_schreiben_teil2.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=512, temperature=0.75),
+            asyncio.to_thread(generate_exam, template, max_tokens=512, temperature=0.75),
             timeout=90.0
         )
         parsed = _extract_json(raw)

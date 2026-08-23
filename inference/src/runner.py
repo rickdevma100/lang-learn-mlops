@@ -13,11 +13,12 @@ from .config import BACKEND
 if BACKEND == "mlx":
     from .backends.mlx_backend import generate, warmup
     generate_stream = None  # MLX does not support streaming
+    generate_exam = generate  # MLX uses the same model for everything
 elif BACKEND == "llamacpp":
-    from .backends.llamacpp_backend import generate, generate_stream, warmup
+    from .backends.llamacpp_backend import generate, generate_exam, generate_stream, warmup
 else:
     raise ValueError(
         f"Unknown BACKEND={BACKEND!r}. Must be 'mlx' or 'llamacpp'."
     )
 
-__all__ = ["warmup", "generate", "generate_stream"]
+__all__ = ["warmup", "generate", "generate_exam", "generate_stream"]
