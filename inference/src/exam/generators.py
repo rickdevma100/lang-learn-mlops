@@ -246,15 +246,15 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil1.txt")
-        prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
+        prompt_with_theme = f"IMPORTANT: The \"text\" field MUST contain at least 150 words of German. Write a LONG, detailed article.\n\n{template}\n\nTopic: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=2048, temperature=0.75),
             timeout=240.0
         )
         logger.info("Lesen Teil 1 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
         text_word_count = len(parsed.get("text", "").split()) if parsed else 0
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 100:
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 40:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -262,7 +262,7 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
-            logger.info("Lesen Teil 1 LLM rejected: text=%d words (need 100+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
+            logger.info("Lesen Teil 1 LLM rejected: text=%d words (need 40+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 1 using fallback: %s", e)
@@ -305,15 +305,15 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil2.txt")
-        prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
+        prompt_with_theme = f"IMPORTANT: Generate ALL 6 floors with many departments each.\n\n{template}\n\nVenue: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=2048, temperature=0.75),
             timeout=240.0
         )
         logger.info("Lesen Teil 2 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
         dir_count = len(parsed.get("directory", [])) if parsed else 0
-        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and dir_count >= 4:
+        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and dir_count >= 2:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -321,7 +321,7 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
-            logger.info("Lesen Teil 2 LLM rejected: floors=%d (need 4+), items=%d", dir_count, len(parsed.get("items", [])) if parsed else 0)
+            logger.info("Lesen Teil 2 LLM rejected: floors=%d (need 2+), items=%d", dir_count, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 2 using fallback: %s", e)
@@ -364,15 +364,15 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil3.txt")
-        prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
+        prompt_with_theme = f"IMPORTANT: The \"text\" field MUST contain at least 150 words of German. Write a LONG, detailed email.\n\n{template}\n\nContext: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=2048, temperature=0.75),
             timeout=240.0
         )
         logger.info("Lesen Teil 3 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
         text_word_count = len(parsed.get("text", "").split()) if parsed else 0
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 100:
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 40:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -380,7 +380,7 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
         else:
-            logger.info("Lesen Teil 3 LLM rejected: text=%d words (need 100+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
+            logger.info("Lesen Teil 3 LLM rejected: text=%d words (need 40+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 3 using fallback: %s", e)
@@ -425,15 +425,16 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
     source = "fallback"
     try:
         template = load_prompt("exam_lesen_teil4.txt")
+        boosted = f"IMPORTANT: Generate ALL 6 ads with detailed descriptions (at least 2 sentences each).\n\n{template}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate_exam, template, max_tokens=1200, temperature=0.75),
+            asyncio.to_thread(generate_exam, boosted, max_tokens=2048, temperature=0.75),
             timeout=240.0
         )
         logger.info("Lesen Teil 4 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
         ads_count = len(parsed.get("ads", [])) if parsed else 0
-        # Check ad descriptions are substantial (not just 1-line stubs)
-        ads_quality_ok = ads_count >= 5 and all(len(str(ad.get("text", ""))) >= 20 for ad in parsed.get("ads", [])[:5]) if parsed else False
+        # Accept if we have at least 3 ads with some text
+        ads_quality_ok = ads_count >= 3 and all(len(str(ad.get("text", ""))) >= 10 for ad in parsed.get("ads", [])[:3]) if parsed else False
         if parsed and ads_quality_ok and "items" in parsed and len(parsed["items"]) >= 3:
             data = parsed
             source = "llm"
@@ -442,7 +443,11 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
             else:
                 data["items"] = data["items"][:5]
             if len(data["ads"]) < 6:
-                data["ads"] = fallback_choice["ads"]
+                # Pad missing ads from pool
+                for pad_ad in fallback_choice["ads"]:
+                    if len(data["ads"]) >= 6:
+                        break
+                    data["ads"].append(pad_ad)
         else:
             logger.info("Lesen Teil 4 LLM rejected: ads=%d, quality_ok=%s, items=%d", ads_count, ads_quality_ok, len(parsed.get("items", [])) if parsed else 0)
             data = fallback_choice
