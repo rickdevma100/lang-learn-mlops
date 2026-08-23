@@ -1044,5 +1044,92 @@ class LangLearnService:
                 "traceback": tb,
             }
 
+    # ------------------------------------------------------------------
+    # Text Pool Management API
+    # ------------------------------------------------------------------
 
+    @bentoml.api
+    def pool_stats(self) -> dict:
+        """Get pool statistics for all Teile."""
+        try:
+            from .exam.text_pool import TextPool
+            pool = TextPool()
+            stats = pool.get_pool_stats()
+            return {"success": True, "stats": stats}
+        except Exception as e:
+            tb = _write_error("pool_stats", e)
+            return {"error": str(e), "type": type(e).__name__, "traceback": tb}
 
+    @bentoml.api
+    def pool_list_texts(self, teil: str) -> dict:
+        """List all texts in the pool for a given Teil.
+
+        Args:
+            teil: One of 'lesen_teil1', 'lesen_teil2', 'lesen_teil3', 'lesen_teil4'
+        """
+        try:
+            from .exam.text_pool import TextPool
+            pool = TextPool()
+            texts = pool.list_texts(teil)
+            # Return summaries (not full text to keep response small)
+            summaries = []
+            for i, t in enumerate(texts):
+                summary = {
+                    "index": i,
+                    "title": t.get("title", t.get("sender", f"Text {i+1}")),
+                }
+                if "text" in t:
+                    summary["word_count"] = len(t["text"].split())
+                    summary["preview"] = t["text"][:150] + "..." if len(t["text"]) > 150 else t["text"]
+                elif "directory" in t:
+                    summary["floors"] = len(t["directory"])
+                    summary["preview"] = f"Kaufhaus with {len(t['directory'])} floors"
+                elif "ads" in t:
+                    summary["ad_count"] = len(t["ads"])
+                    summary["preview"] = ", ".join(a.get("title", "") for a in t["ads"][:3]) + "..."
+                summaries.append(summary)
+            return {"success": True, "teil": teil, "count": len(texts), "texts": summaries}
+        except Exception as e:
+            tb = _write_error("pool_list_texts", e)
+            return {"error": str(e), "type": type(e).__name__, "traceback": tb}
+
+    @bentoml.api
+    def pool_add_text(self, teil: str, text_data: str) -> dict:
+        """Add a custom text to the pool.
+
+        Args:
+            teil: One of 'lesen_teil1', 'lesen_teil2', 'lesen_teil3', 'lesen_teil4'
+            text_data: JSON string with the text object to add.
+                       For Teil 1: {"title": "...", "text": "..."}
+                       For Teil 2: {"title": "...", "directory": [...]}
+                       For Teil 3: {"sender": "...", "recipient": "...", "subject": "...", "text": "..."}
+                       For Teil 4: {"title": "...", "ads": [...]}
+        """
+        try:
+            from .exam.text_pool import TextPool
+            parsed = json.loads(text_data)
+            pool = TextPool()
+            new_count = pool.add_text(teil, parsed)
+            return {"success": True, "teil": teil, "count": new_count}
+        except json.JSONDecodeError as e:
+            return {"error": f"Invalid JSON: {e}", "success": False}
+        except Exception as e:
+            tb = _write_error("pool_add_text", e)
+            return {"error": str(e), "type": type(e).__name__, "traceback": tb}
+
+    @bentoml.api
+    def pool_remove_text(self, teil: str, index: int) -> dict:
+        """Remove a text from the pool by index.
+
+        Args:
+            teil: One of 'lesen_teil1', 'lesen_teil2', 'lesen_teil3', 'lesen_teil4'
+            index: The 0-based index of the text to remove.
+        """
+        try:
+            from .exam.text_pool import TextPool
+            pool = TextPool()
+            success = pool.remove_text(teil, index)
+            return {"success": success, "teil": teil, "removed_index": index}
+        except Exception as e:
+            tb = _write_error("pool_remove_text", e)
+            return {"error": str(e), "type": type(e).__name__, "traceback": tb}

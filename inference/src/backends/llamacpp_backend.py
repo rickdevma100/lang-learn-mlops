@@ -1,14 +1,10 @@
-"""llama-cpp-python dual-model inference backend (GGUF Gemma).
+"""llama-cpp-python inference backend (GGUF Gemma 2B).
 
 Used on Linux/KServe where MLX (Apple Metal) is unavailable.
+Loads the 2B model for all tasks (dialog, word explainer, exam questions).
 
-Loads TWO models:
-  - Dialog model (2B): Fast, used for dialog practice, word explainer, practice checks
-  - Exam model (4B): Larger, used for exam paper generation (structured JSON output)
-
-Set via environment variables:
-  LANG_LEARN_MODEL_PATH       → dialog model (2B, default)
-  LANG_LEARN_EXAM_MODEL_PATH  → exam model (4B, for exam generation)
+Set via environment variable:
+  LANG_LEARN_MODEL_PATH → path to the .gguf model file
 """
 from __future__ import annotations
 
@@ -18,66 +14,37 @@ import threading
 from typing import Iterable
 
 # pyrefly: ignore [missing-import]
-from ..config import EXAM_MODEL_PATH, MAX_TOKENS, MODEL_PATH, TEMPERATURE
+from ..config import MAX_TOKENS, MODEL_PATH, TEMPERATURE
 
 logger = logging.getLogger("lang_learn.backends.llamacpp")
 
 # ---------------------------------------------------------------------------
-# Dialog model (2B) — fast, for conversational tasks
+# Single model instance
 # ---------------------------------------------------------------------------
-_dialog_llm = None
-_dialog_lock = threading.Lock()
+_llm = None
+_lock = threading.Lock()
 
 
-def _get_dialog_llm():
-    global _dialog_llm
-    if _dialog_llm is None:
-        with _dialog_lock:
-            if _dialog_llm is None:
+def _get_llm():
+    global _llm
+    if _llm is None:
+        with _lock:
+            if _llm is None:
                 # pyrefly: ignore [missing-import]
                 from llama_cpp import Llama
 
                 n_threads = int(os.getenv("LANG_LEARN_N_THREADS", "4"))
                 if n_threads < 4:
                     n_threads = 4
-                logger.info("Loading DIALOG model (2B): %s", MODEL_PATH)
-                _dialog_llm = Llama(
+                logger.info("Loading model (2B): %s", MODEL_PATH)
+                _llm = Llama(
                     model_path=MODEL_PATH,
                     n_ctx=4096,
                     n_threads=n_threads,
                     verbose=False,
                 )
-                logger.info("Dialog model loaded successfully")
-    return _dialog_llm
-
-
-# ---------------------------------------------------------------------------
-# Exam model (4B) — larger, for structured exam paper generation
-# ---------------------------------------------------------------------------
-_exam_llm = None
-_exam_lock = threading.Lock()
-
-
-def _get_exam_llm():
-    global _exam_llm
-    if _exam_llm is None:
-        with _exam_lock:
-            if _exam_llm is None:
-                # pyrefly: ignore [missing-import]
-                from llama_cpp import Llama
-
-                n_threads = int(os.getenv("LANG_LEARN_N_THREADS", "4"))
-                if n_threads < 4:
-                    n_threads = 4
-                logger.info("Loading EXAM model (4B): %s", EXAM_MODEL_PATH)
-                _exam_llm = Llama(
-                    model_path=EXAM_MODEL_PATH,
-                    n_ctx=4096,
-                    n_threads=n_threads,
-                    verbose=False,
-                )
-                logger.info("Exam model loaded successfully")
-    return _exam_llm
+                logger.info("Model loaded successfully")
+    return _llm
 
 
 # ---------------------------------------------------------------------------
@@ -85,12 +52,10 @@ def _get_exam_llm():
 # ---------------------------------------------------------------------------
 
 def warmup() -> None:
-    """Pre-load both GGUF models into memory."""
-    logger.info("Warming up dual models...")
-    _get_dialog_llm()
-    logger.info("Dialog model (2B) ready")
-    _get_exam_llm()
-    logger.info("Exam model (4B) ready — dual-model architecture active")
+    """Pre-load the GGUF model into memory."""
+    logger.info("Warming up model...")
+    _get_llm()
+    logger.info("Model ready")
 
 
 def generate(
@@ -99,32 +64,9 @@ def generate(
     max_tokens: int = MAX_TOKENS,
     temperature: float = TEMPERATURE,
 ) -> str:
-    """Generate using the DIALOG model (2B) — fast, for conversational tasks.
-
-    Used for: dialog practice, word explainer, practice checks, schreiben eval.
-    """
-    llm = _get_dialog_llm()
-    with _dialog_lock:
-        output = llm.create_chat_completion(
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=max_tokens,
-            temperature=temperature,
-        )
-    return output["choices"][0]["message"]["content"]
-
-
-def generate_exam(
-    prompt: str,
-    max_tokens: int = 1024,
-    temperature: float = 0.75,
-) -> str:
-    """Generate using the EXAM model (4B) — larger, for structured exam output.
-
-    Used for: exam paper generation (Lesen Teil 1-4, Schreiben Teil 1-2).
-    The 4B model produces longer, richer German text with better JSON adherence.
-    """
-    llm = _get_exam_llm()
-    with _exam_lock:
+    """Generate text using the 2B model."""
+    llm = _get_llm()
+    with _lock:
         output = llm.create_chat_completion(
             messages=[{"role": "user", "content": prompt}],
             max_tokens=max_tokens,
@@ -138,11 +80,11 @@ def generate_stream(
     max_tokens: int = MAX_TOKENS,
     temperature: float = TEMPERATURE,
 ) -> Iterable[str]:
-    """Stream tokens using the DIALOG model (2B).
+    """Stream tokens from the 2B model.
 
     Yields each token string as it is generated by the model.
     """
-    llm = _get_dialog_llm()
+    llm = _get_llm()
     stream = llm.create_chat_completion(
         messages=[{"role": "user", "content": prompt}],
         max_tokens=max_tokens,
