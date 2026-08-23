@@ -12,7 +12,7 @@ from typing import Any, Dict
 # pyrefly: ignore [missing-import]
 from ..prompts import load_prompt
 # pyrefly: ignore [missing-import]
-from ..runner import generate
+from ..backends.external_llama_backend import generate_external
 from .models import EvaluationResult, ExamModule
 
 logger = logging.getLogger("lang_learn.exam.evaluators")
@@ -206,7 +206,7 @@ def evaluate_writing(paper: Dict[str, Any], user_answers: Dict[str, Any]) -> Eva
             teil2_prompt=teil2_prompt,
             teil2_user_text=teil2_user_text or "(Keine Antwort eingegeben)"
         )
-        raw = generate(prompt, max_tokens=1000, temperature=0.2)
+        raw = generate_external(prompt, max_tokens=1000, temperature=0.2)
         parsed = _extract_json(raw)
     except Exception as e:
         logger.error("Error evaluating writing via LLM: %s", e)

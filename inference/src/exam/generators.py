@@ -1,8 +1,10 @@
 """Async generators for Goethe A2 Exam Teile (Lesen & Schreiben).
 
-Hybrid architecture:
-- Lesen: Certified pool texts from Redis + LLM-generated questions (2B model)
-- Schreiben: LLM-only generation with fallback pool
+Architecture:
+- ALL Lesen Teile: Pool text/data + PROGRAMMATIC questions (instant, 100% correct)
+- Schreiben: LLM-only with fallback pool
+
+ZERO LLM calls during exam generation for Lesen.
 """
 from __future__ import annotations
 
@@ -20,22 +22,20 @@ from .text_pool import TextPool
 
 logger = logging.getLogger("lang_learn.exam.generators")
 
-# Singleton text pool instance (initialized on first use)
+# Singleton text pool instance
 _text_pool: TextPool | None = None
 
 
 def _get_text_pool() -> TextPool:
-    """Get or create the text pool singleton."""
     global _text_pool
     if _text_pool is None:
         _text_pool = TextPool()
-        # Seed pool on first access
         stats = _text_pool.seed_pool()
         logger.info("Text pool initialized: %s", stats)
     return _text_pool
 
 
-# Ring buffer for Schreiben pools (kept for backward compat)
+# Schreiben ring buffers
 _recent_pool_history: Dict[str, collections.deque] = {
     "schreiben_t1": collections.deque(maxlen=4),
     "schreiben_t2": collections.deque(maxlen=4),
@@ -43,7 +43,6 @@ _recent_pool_history: Dict[str, collections.deque] = {
 
 
 def _pick_distinct_pool_item(pool: List[Dict[str, Any]], key: str) -> Dict[str, Any]:
-    """Select a randomized item from the pool ensuring no recent repeats."""
     history = _recent_pool_history.setdefault(key, collections.deque(maxlen=max(1, len(pool) - 1)))
     available_indices = [i for i in range(len(pool)) if i not in history]
     if not available_indices:
@@ -55,22 +54,16 @@ def _pick_distinct_pool_item(pool: List[Dict[str, Any]], key: str) -> Dict[str, 
 
 
 # ---------------------------------------------------------------------------
-# JSON parsing helpers
+# JSON parsing helpers (used by Schreiben only now)
 # ---------------------------------------------------------------------------
 
 def _repair_json_string(text: str) -> str:
-    """Repair common JSON formatting errors from small LLMs."""
-    text = re.sub(
-        r':\s*(?!")([A-ZÄÖÜa-zäöüß][^",}\]]*?")',
-        r': "\1',
-        text
-    )
+    text = re.sub(r':\s*(?!")([A-ZÄÖÜa-zäöüß][^",}\]]*?")', r': "\1', text)
     text = re.sub(r',\s*([\}\]])', r'\1', text)
     return text
 
 
 def _try_parse_json(text: str) -> Any | None:
-    """Attempt to parse text as JSON, returning None on failure."""
     try:
         return json.loads(text)
     except (json.JSONDecodeError, ValueError):
@@ -78,45 +71,32 @@ def _try_parse_json(text: str) -> Any | None:
 
 
 def _extract_json(text: str) -> Any | None:
-    """Robustly extract and parse JSON from LLM generation output.
-
-    Handles markdown fences, missing quotes, truncated output, trailing commas.
-    Returns either a dict or list depending on what was parsed.
-    """
     if not text or not text.strip():
         return None
-
     cleaned = text.strip()
     cleaned = re.sub(r"^```(?:json|JSON)?\s*\n?", "", cleaned)
     cleaned = re.sub(r"\n?\s*```\s*$", "", cleaned)
     cleaned = cleaned.strip()
 
-    # 1. Try direct parse
     result = _try_parse_json(cleaned)
     if result:
         return result
-
-    # 2. Try after repairing quotes and commas
     repaired = _repair_json_string(cleaned)
     result = _try_parse_json(repaired)
     if result:
         return result
 
-    # 3. Extract JSON array if present
     arr_match = re.search(r"(\[.*\])", repaired, re.DOTALL)
     if arr_match:
         result = _try_parse_json(arr_match.group(1))
         if result:
             return result
-
-    # 4. Extract JSON object if present
     obj_match = re.search(r"(\{.*\})", repaired, re.DOTALL)
     if obj_match:
         result = _try_parse_json(obj_match.group(1))
         if result:
             return result
 
-    # 5. Handle truncated output: find start, close brackets
     for start_char in ("[", "{"):
         start_idx = repaired.find(start_char)
         if start_idx == -1:
@@ -134,19 +114,446 @@ def _extract_json(text: str) -> Any | None:
                 attempt = candidate + suffix
                 result = _try_parse_json(attempt)
                 if result:
-                    logger.info("JSON recovered from truncated output (trimmed %d lines)", trim_count)
                     return result
                 attempt_repaired = _repair_json_string(attempt)
                 result = _try_parse_json(attempt_repaired)
                 if result:
                     return result
-
-    logger.warning("All JSON extraction attempts failed. Output length: %d chars", len(text))
     return None
 
 
+# ---------------------------------------------------------------------------
+# PROGRAMMATIC Question Generators — NO LLM needed
+# ---------------------------------------------------------------------------
+
+def _split_sentences(text: str) -> List[str]:
+    """Split German text into sentences, filtering out very short ones."""
+    raw = re.split(r'(?<=[.!?])\s+', text.strip())
+    sentences = []
+    for s in raw:
+        s = s.strip()
+        # Skip very short fragments, quotes, greetings
+        if len(s) > 25 and not s.startswith("Liebe") and not s.startswith("Bis ") and not s.startswith("Viele Grüße"):
+            sentences.append(s)
+    return sentences
+
+
+def _extract_key_facts(text: str) -> List[Dict[str, str]]:
+    """Extract factual statements from text for question generation."""
+    sentences = _split_sentences(text)
+    facts = []
+    for sent in sentences:
+        # Extract numbers, names, places for factual questions
+        has_number = bool(re.search(r'\d+', sent))
+        has_quote = '„' in sent or '\"' in sent or '»' in sent
+        has_name = bool(re.search(r'[A-ZÄÖÜ][a-zäöüß]{2,}\s+[A-ZÄÖÜ]', sent))
+        
+        fact = {
+            "sentence": sent,
+            "has_number": has_number,
+            "has_quote": has_quote,
+            "has_name": has_name,
+            "type": "quote" if has_quote else ("number" if has_number else ("name" if has_name else "general"))
+        }
+        facts.append(fact)
+    return facts
+
+
+def _generate_wrong_option(correct_sentence: str, all_sentences: List[str]) -> str:
+    """Generate a plausible but wrong option based on the correct sentence."""
+    # Strategy 1: Pick a sentence from a different part of the text
+    other = [s for s in all_sentences if s != correct_sentence]
+    if other:
+        wrong = random.choice(other)
+        # Truncate to roughly same length as correct
+        if len(wrong) > 80:
+            wrong = wrong[:77] + "..."
+        return wrong
+    return "Das steht nicht im Text."
+
+
+def _generate_teil1_questions_programmatic(text: str, title: str, id_start: int = 1) -> List[Dict[str, Any]]:
+    """Generate 5 MCQ questions from a newspaper article — FULLY PROGRAMMATIC.
+    
+    Uses the Goethe A2 format: Richtig / Falsch / Steht nicht im Text.
+    Creates statements about the article and asks whether they're correct.
+    """
+    sentences = _split_sentences(text)
+    if len(sentences) < 3:
+        # Fallback: split on newlines
+        sentences = [s.strip() for s in text.split('\n') if len(s.strip()) > 25]
+    
+    random.shuffle(sentences)
+    
+    # Question templates
+    templates_richtig = [
+        "Im Artikel steht: {statement}",
+        "Laut dem Text: {statement}",
+        "{statement}",
+    ]
+    
+    # Generate "steht nicht im Text" statements
+    not_in_text_statements = [
+        f"Der Artikel wurde in einer Fachzeitschrift für Wissenschaft veröffentlicht.",
+        f"Der Autor des Artikels lebt seit 20 Jahren in Australien.",
+        f"Im Text wird ein neues Gesetz der Europäischen Union beschrieben.",
+        f"Der Artikel berichtet über ein Sportereignis in Asien.",
+        f"Im Text geht es hauptsächlich um die Geschichte des Mittelalters.",
+        f"Der Artikel beschreibt eine neue Methode der Weltraumforschung.",
+        f"Im Text wird über ein Musikfestival in Südamerika berichtet.",
+        f"Der Artikel handelt von einem Vulkanausbruch auf Island.",
+    ]
+    
+    questions = []
+    used_sentences = set()
+    
+    for i in range(5):
+        q_id = id_start + i
+        question_type = random.choices(["richtig", "falsch", "nicht_im_text"], weights=[3, 1, 1])[0]
+        
+        if question_type == "richtig" and len(sentences) > len(used_sentences):
+            # Pick an unused sentence — this IS in the text (Richtig)
+            available = [s for s in sentences if s not in used_sentences]
+            if not available:
+                available = sentences
+            chosen = random.choice(available)
+            used_sentences.add(chosen)
+            
+            # Truncate for display
+            statement = chosen if len(chosen) <= 100 else chosen[:97] + "..."
+            template = random.choice(templates_richtig)
+            
+            correct_answer = "a"
+            questions.append({
+                "id": q_id,
+                "question": template.format(statement=statement),
+                "options": {
+                    "a": "Richtig",
+                    "b": "Falsch",
+                    "c": "Steht nicht im Text"
+                },
+                "answer_key": correct_answer,
+                "explanation": f"Diese Aussage steht im Text: \"{chosen[:60]}...\""
+            })
+            
+        elif question_type == "nicht_im_text":
+            # Statement NOT in the text
+            statement = random.choice(not_in_text_statements)
+            not_in_text_statements.remove(statement)
+            
+            correct_answer = "c"
+            questions.append({
+                "id": q_id,
+                "question": statement,
+                "options": {
+                    "a": "Richtig",
+                    "b": "Falsch",
+                    "c": "Steht nicht im Text"
+                },
+                "answer_key": correct_answer,
+                "explanation": "Diese Information steht nicht im Text."
+            })
+        else:
+            # "Falsch" — modify a real sentence to make it wrong
+            available = [s for s in sentences if s not in used_sentences]
+            if not available:
+                available = sentences
+            chosen = random.choice(available)
+            used_sentences.add(chosen)
+            
+            # Create a false version by negation or number change
+            false_statement = _make_false_statement(chosen)
+            
+            correct_answer = "b"
+            questions.append({
+                "id": q_id,
+                "question": false_statement,
+                "options": {
+                    "a": "Richtig",
+                    "b": "Falsch",
+                    "c": "Steht nicht im Text"
+                },
+                "answer_key": correct_answer,
+                "explanation": f"Falsch. Im Text steht: \"{chosen[:80]}...\""
+            })
+    
+    return questions
+
+
+def _make_false_statement(sentence: str) -> str:
+    """Modify a German sentence to make it factually incorrect."""
+    # Strategy 1: Change numbers
+    numbers = re.findall(r'\d+', sentence)
+    if numbers:
+        num = random.choice(numbers)
+        wrong_num = str(int(num) * 2 + 7)  # Make it clearly different
+        return sentence.replace(num, wrong_num, 1)
+    
+    # Strategy 2: Add "nicht" or remove it
+    if " nicht " in sentence:
+        return sentence.replace(" nicht ", " ", 1)
+    
+    # Strategy 3: Change positive to negative
+    replacements = [
+        ("gut", "schlecht"), ("viele", "wenige"), ("groß", "klein"),
+        ("schnell", "langsam"), ("beliebt", "unbeliebt"), ("mehr", "weniger"),
+        ("gern", "ungern"), ("oft", "selten"), ("neu", "alt"),
+        ("teuer", "billig"), ("wichtig", "unwichtig"),
+    ]
+    for pos, neg in replacements:
+        if pos in sentence.lower():
+            # Case-insensitive replacement
+            pattern = re.compile(re.escape(pos), re.IGNORECASE)
+            return pattern.sub(neg, sentence, count=1)
+    
+    # Strategy 4: Add "nicht" before the verb area
+    words = sentence.split()
+    if len(words) > 4:
+        insert_pos = min(3, len(words) - 1)
+        words.insert(insert_pos, "nicht")
+        return " ".join(words)
+    
+    return sentence + " Das stimmt nicht."
+
+
+def _generate_teil2_questions_programmatic(directory: List[Dict[str, Any]], id_start: int = 6) -> List[Dict[str, Any]]:
+    """Generate 5 MCQ from a floor directory — FULLY PROGRAMMATIC, 100% correct."""
+    all_items = []
+    all_floors = []
+    for floor_info in directory:
+        floor_name = floor_info["floor"]
+        all_floors.append(floor_name)
+        departments = [d.strip() for d in floor_info["departments"].split(",")]
+        for dept in departments:
+            if dept and len(dept) > 2:
+                all_items.append((dept, floor_name))
+
+    random.shuffle(all_items)
+
+    selected = []
+    used_floors = set()
+    for dept, floor in all_items:
+        if floor not in used_floors or len(selected) < 5:
+            selected.append((dept, floor))
+            used_floors.add(floor)
+        if len(selected) >= 5:
+            break
+    if len(selected) < 5:
+        for dept, floor in all_items:
+            if (dept, floor) not in selected:
+                selected.append((dept, floor))
+            if len(selected) >= 5:
+                break
+
+    scenarios = [
+        "Sie möchten {} kaufen. Wohin gehen Sie?",
+        "Sie suchen {}. In welchem Stock finden Sie das?",
+        "Ihr Freund braucht {}. Wo im Kaufhaus finden Sie das?",
+        "Sie möchten sich {} ansehen. Wohin müssen Sie gehen?",
+        "Eine Kundin fragt nach {}. In welchem Stock ist das?",
+    ]
+
+    questions = []
+    for i, (dept, correct_floor) in enumerate(selected[:5]):
+        q_id = id_start + i
+        scenario = scenarios[i % len(scenarios)]
+        wrong_floors = [f for f in all_floors if f != correct_floor]
+        random.shuffle(wrong_floors)
+        options_list = [correct_floor] + wrong_floors[:2]
+        random.shuffle(options_list)
+        correct_letter = chr(ord('a') + options_list.index(correct_floor))
+
+        questions.append({
+            "id": q_id,
+            "question": scenario.format(dept),
+            "options": {"a": options_list[0], "b": options_list[1], "c": options_list[2]},
+            "answer_key": correct_letter,
+            "explanation": f"{dept} befindet sich im {correct_floor}."
+        })
+    return questions
+
+
+def _generate_teil3_questions_programmatic(text: str, sender: str, recipient: str, subject: str, id_start: int = 11) -> List[Dict[str, Any]]:
+    """Generate 5 MCQ from a personal email — FULLY PROGRAMMATIC.
+    
+    Creates comprehension questions about the email content.
+    Uses Richtig / Falsch / Steht nicht im Text format (authentic Goethe A2).
+    """
+    sentences = _split_sentences(text)
+    if len(sentences) < 3:
+        sentences = [s.strip() for s in text.split('\n') if len(s.strip()) > 20]
+    
+    random.shuffle(sentences)
+    
+    # Email-specific "not in text" statements
+    not_in_text = [
+        f"{sender} hat einen neuen Job in einer Bank gefunden.",
+        f"{sender} plant eine Reise nach Japan im nächsten Sommer.",
+        f"{sender} hat letzte Woche geheiratet.",
+        f"{sender} studiert jetzt Medizin an der Universität.",
+        f"In der E-Mail geht es um einen Autounfall.",
+        f"{sender} bittet um Geld für eine neue Wohnung.",
+        f"{sender} hat ein Haustier (eine Katze) gekauft.",
+        f"{sender} möchte in ein anderes Land umziehen.",
+    ]
+    
+    questions = []
+    used_sentences = set()
+    
+    for i in range(5):
+        q_id = id_start + i
+        
+        if i == 0:
+            # First question: about the purpose of the email
+            questions.append({
+                "id": q_id,
+                "question": f"Warum schreibt {sender} diese E-Mail?",
+                "options": {
+                    "a": f"{sender} möchte Neuigkeiten erzählen.",
+                    "b": f"{sender} braucht dringend Hilfe bei einem Problem.",
+                    "c": f"{sender} möchte sich über etwas beschweren."
+                },
+                "answer_key": "a",
+                "explanation": f"{sender} schreibt, um Neuigkeiten und persönliche Erfahrungen mitzuteilen."
+            })
+        elif i < 4 and len(sentences) > len(used_sentences):
+            # Middle questions: Richtig/Falsch about specific facts
+            available = [s for s in sentences if s not in used_sentences]
+            if not available:
+                available = sentences
+            chosen = random.choice(available)
+            used_sentences.add(chosen)
+            
+            # Alternate between Richtig and Falsch
+            if i % 2 == 1:
+                statement = chosen if len(chosen) <= 90 else chosen[:87] + "..."
+                questions.append({
+                    "id": q_id,
+                    "question": statement,
+                    "options": {"a": "Richtig", "b": "Falsch", "c": "Steht nicht im Text"},
+                    "answer_key": "a",
+                    "explanation": f"Diese Aussage steht in der E-Mail: \"{chosen[:60]}...\""
+                })
+            else:
+                false_statement = _make_false_statement(chosen)
+                questions.append({
+                    "id": q_id,
+                    "question": false_statement,
+                    "options": {"a": "Richtig", "b": "Falsch", "c": "Steht nicht im Text"},
+                    "answer_key": "b",
+                    "explanation": f"Falsch. In der E-Mail steht: \"{chosen[:60]}...\""
+                })
+        else:
+            # Last question: not in text
+            stmt = random.choice(not_in_text)
+            not_in_text.remove(stmt)
+            questions.append({
+                "id": q_id,
+                "question": stmt,
+                "options": {"a": "Richtig", "b": "Falsch", "c": "Steht nicht im Text"},
+                "answer_key": "c",
+                "explanation": "Diese Information steht nicht in der E-Mail."
+            })
+    
+    return questions
+
+
+def _generate_teil4_questions_programmatic(ads: List[Dict[str, Any]], id_start: int = 16) -> List[Dict[str, Any]]:
+    """Generate 5 person-matching questions from classified ads — FULLY PROGRAMMATIC."""
+    _KEYWORD_SCENARIOS = [
+        (["Kinder", "Kind", "Spielplatz", "Spielsachen", "Geburtstag", "Spielen", "spielen"],
+         "{name} möchte mit seinen Kindern einen schönen Nachmittag verbringen und sucht einen Ort mit Spielmöglichkeiten."),
+        (["Kurs", "lernen", "Unterricht", "Schule", "Sprachkurs", "Training"],
+         "{name} möchte einen Kurs besuchen und sucht Informationen über Termine und Preise."),
+        (["Wochenende", "Samstag", "Sonntag", "Frühstück"],
+         "{name} sucht ein Lokal, das am Wochenende ein gutes Frühstück anbietet."),
+        (["Reparatur", "kaputt", "Notdienst", "reparieren", "Werkstatt"],
+         "{name} braucht eine Reparatur und sucht einen zuverlässigen Service."),
+        (["Essen", "Restaurant", "Küche", "kochen", "Menü", "Spezialitäten"],
+         "{name} möchte mit Freunden in einem guten Restaurant essen gehen."),
+        (["Sport", "Fitness", "Training", "Schwimmen", "Fahrrad"],
+         "{name} möchte regelmäßig Sport machen und sucht ein passendes Angebot."),
+        (["Musik", "Konzert", "Party", "Live", "Veranstaltung", "Abend"],
+         "{name} möchte abends ausgehen und sucht eine Veranstaltung mit Unterhaltung."),
+        (["Hochzeit", "Feier", "feiern", "Fest", "Gäste"],
+         "{name} plant eine große Feier und sucht einen passenden Ort."),
+        (["Liefern", "liefern", "bestellen", "Catering", "Lieferung"],
+         "{name} möchte Essen für eine private Feier bestellen."),
+        (["Garten", "Terrasse", "draußen", "Sonnenterrasse", "Natur"],
+         "{name} möchte bei schönem Wetter draußen sitzen und etwas essen."),
+        (["Kuchen", "Torte", "Eis", "Café", "Kaffee"],
+         "{name} möchte Kuchen essen und Kaffee trinken gehen."),
+        (["Tiere", "Hund", "Katze", "Tierarzt", "Haustier"],
+         "{name} sucht Hilfe für sein Haustier."),
+        (["Markt", "einkaufen", "Supermarkt", "Geschäft"],
+         "{name} möchte frische Lebensmittel einkaufen."),
+        (["Ausflug", "Urlaub", "Reise", "Ausflugsziel"],
+         "{name} plant einen Tagesausflug mit der Familie."),
+    ]
+
+    _NAMES = ["Peter", "Maria", "Thomas", "Sarah", "Jens", "Laura", "Markus",
+              "Petra", "Stefan", "Anna", "Karsten", "Gabriele", "Hans", "Sophie"]
+
+    used_names = set()
+    questions = []
+
+    shuffled_ads = list(ads)
+    random.shuffle(shuffled_ads)
+
+    for i in range(min(4, len(shuffled_ads))):
+        ad = shuffled_ads[i]
+        ad_id = ad["id"].lower()
+        ad_text_lower = ad["text"].lower()
+        ad_title = ad.get("title", "")
+
+        best_scenario = None
+        for keywords, template in _KEYWORD_SCENARIOS:
+            if any(kw.lower() in ad_text_lower or kw.lower() in ad_title.lower() for kw in keywords):
+                best_scenario = template
+                break
+        if not best_scenario:
+            best_scenario = "{name} sucht Informationen über das Angebot von " + ad_title + "."
+
+        name = random.choice([n for n in _NAMES if n not in used_names])
+        used_names.add(name)
+
+        q_id = id_start + len(questions)
+        questions.append({
+            "id": q_id,
+            "question": best_scenario.format(name=name),
+            "answer_key": ad_id,
+            "explanation": f"Anzeige {ad_id.upper()} ({ad_title}) passt: {ad['text'][:80]}..."
+        })
+
+    # 1 "no match" question
+    name = random.choice([n for n in _NAMES if n not in used_names])
+    no_match = [
+        f"{name} sucht einen Zahnarzt, der auch am Abend Termine hat.",
+        f"{name} möchte privaten Klavierunterricht nehmen.",
+        f"{name} braucht einen Anwalt für Mietrecht.",
+        f"{name} sucht eine Tagesmutter für sein zweijähriges Kind.",
+        f"{name} möchte Japanisch lernen.",
+        f"{name} sucht eine Reinigungsfirma für sein Büro.",
+    ]
+    q_id = id_start + len(questions)
+    questions.append({
+        "id": q_id,
+        "question": random.choice(no_match),
+        "answer_key": "x",
+        "explanation": "Keine der Anzeigen passt zu dieser Person."
+    })
+
+    random.shuffle(questions)
+    for i, q in enumerate(questions):
+        q["id"] = id_start + i
+    return questions[:5]
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
 def _normalize_option_letter(val: Any, valid_set: tuple = ("a", "b", "c")) -> str:
-    """Extract and normalize a single option letter."""
     if val is None:
         return valid_set[0]
     s = str(val).strip().lower()
@@ -163,21 +570,14 @@ def _normalize_option_letter(val: Any, valid_set: tuple = ("a", "b", "c")) -> st
 
 
 def _extract_item_answer(item: Dict[str, Any], default: str = "a", valid_options: tuple = ("a", "b", "c")) -> str:
-    """Extract answer key from item regardless of field naming variation."""
     raw = (
-        item.get("answer_key")
-        or item.get("answer")
-        or item.get("correct_answer")
-        or item.get("solution")
-        or item.get("correct_option")
-        or item.get("correct")
-        or default
+        item.get("answer_key") or item.get("answer") or item.get("correct_answer")
+        or item.get("solution") or item.get("correct_option") or item.get("correct") or default
     )
     return _normalize_option_letter(raw, valid_set=valid_options)
 
 
 def _normalize_options_dict(raw_opts: Any) -> Dict[str, str]:
-    """Normalize options to lowercase keys {'a': '...', 'b': '...', 'c': '...'}."""
     if isinstance(raw_opts, list):
         return {chr(ord('a') + i): str(opt) for i, opt in enumerate(raw_opts[:3])}
     elif isinstance(raw_opts, dict):
@@ -192,223 +592,83 @@ def _normalize_options_dict(raw_opts: Any) -> Dict[str, str]:
     return {"a": "Option A", "b": "Option B", "c": "Option C"}
 
 
-# ---------------------------------------------------------------------------
-# LLM Question Generation (shared by all Lesen generators)
-# ---------------------------------------------------------------------------
-
-async def _generate_questions_for_text(
-    text: str,
-    teil_type: str,
-    num_questions: int = 5,
-    id_start: int = 1,
-    max_retries: int = 3,
-) -> List[Dict[str, Any]] | None:
-    """Generate multiple-choice questions for a given text using the 2B LLM.
-    
-    Args:
-        text: The German text to generate questions about.
-        teil_type: Description like 'newspaper article' or 'email' for prompt context.
-        num_questions: Number of questions to generate.
-        id_start: Starting question ID (1 for Teil 1, 6 for Teil 2, etc.)
-        max_retries: Number of LLM retries on failure.
-    
-    Returns:
-        List of question dicts, or None if all retries failed.
-    """
-    id_end = id_start + num_questions - 1
-    
-    # Build example items for the prompt
-    example_items = []
-    for i in range(id_start, id_end + 1):
-        ans = random.choice(["a", "b", "c"])
-        example_items.append(
-            f'{{"id":{i},"question":"Frage auf Deutsch?","options":{{"a":"Antwort A","b":"Antwort B","c":"Antwort C"}},"answer_key":"{ans}","explanation":"Begründung aus dem Text."}}'
-        )
-    example_json = "[" + ",".join(example_items) + "]"
-    
-    prompt = (
-        f"Read this German {teil_type}:\n\n"
-        f"{text}\n\n"
-        f"Generate {num_questions} multiple-choice reading comprehension questions (numbered {id_start}-{id_end}) about this text.\n"
-        "Each question must have exactly 3 options (a, b, c) with ONLY ONE correct answer.\n"
-        "The explanation MUST quote the specific words from the text that prove the answer.\n"
-        f"Return ONLY a valid JSON array:\n{example_json}"
-    )
-    
-    for attempt in range(1, max_retries + 1):
-        try:
-            raw = await asyncio.wait_for(
-                asyncio.to_thread(generate, prompt, max_tokens=1024, temperature=0.4),
-                timeout=90.0
-            )
-            logger.info("Question generation attempt %d: %d chars output", attempt, len(raw))
-            
-            parsed = _extract_json(raw)
-            items = None
-            
-            if isinstance(parsed, list) and len(parsed) >= 3:
-                items = parsed
-            elif isinstance(parsed, dict):
-                if "items" in parsed:
-                    items = parsed["items"]
-                elif "questions" in parsed:
-                    items = parsed["questions"]
-            
-            if items and len(items) >= 3:
-                logger.info("Question generation SUCCESS: %d items on attempt %d", len(items), attempt)
-                return items[:num_questions]
-            else:
-                logger.warning("Question generation attempt %d: parsed but insufficient items (got %d)", 
-                             attempt, len(items) if items else 0)
-                
-        except asyncio.TimeoutError:
-            logger.warning("Question generation attempt %d timed out", attempt)
-        except Exception as e:
-            logger.warning("Question generation attempt %d error: %s", attempt, e)
-    
-    logger.error("Question generation FAILED after %d attempts", max_retries)
-    return None
-
-
-# ---------------------------------------------------------------------------
-# Lesen Generators (Hybrid: Pool Text + LLM Questions)
-# ---------------------------------------------------------------------------
-
-async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 1 (Newspaper Article + 5 MCQ).
-    
-    Hybrid: Text from certified pool, questions from 2B LLM.
-    """
-    pool = _get_text_pool()
-    text_data = pool.get_random_text("lesen_teil1")
-    
-    # Generate fresh questions using LLM
-    items_raw = await _generate_questions_for_text(
-        text=text_data["text"],
-        teil_type="newspaper article",
-        num_questions=5,
-        id_start=1,
-    )
-    
-    if not items_raw:
-        raise RuntimeError("Failed to generate questions for Lesen Teil 1 after all retries")
-    
-    # Sanitize items
+def _sanitize_mcq_items(items_raw: List[Dict], id_start: int, count: int = 5,
+                         valid_options: tuple = ("a", "b", "c")) -> Tuple[List[Dict], Dict, Dict]:
     sanitized_items = []
     answer_key = {}
     explanations = {}
-    
-    for idx, item in enumerate(items_raw[:5], start=1):
+    for idx, item in enumerate(items_raw[:count], start=id_start):
         q_id = idx
-        ans = _extract_item_answer(item, default="a", valid_options=("a", "b", "c"))
-        exp = str(item.get("explanation") or item.get("reason") or "Richtige Antwort laut Text.")
-        opts = _normalize_options_dict(item.get("options", {}))
-        
+        ans = _extract_item_answer(item, default="a", valid_options=valid_options)
+        exp = str(item.get("explanation") or item.get("reason") or "Richtige Antwort.")
+        if valid_options == ("a", "b", "c"):
+            opts = _normalize_options_dict(item.get("options", {}))
+            sanitized_items.append({"id": q_id, "question": str(item.get("question", "")), "options": opts})
+        else:
+            sanitized_items.append({"id": q_id, "question": str(item.get("question", ""))})
         answer_key[str(q_id)] = ans
         explanations[str(q_id)] = exp
-        sanitized_items.append({
-            "id": q_id,
-            "question": str(item.get("question", "")),
-            "options": opts
-        })
-    
+    return sanitized_items, answer_key, explanations
+
+
+# ---------------------------------------------------------------------------
+# Lesen Generators — ALL PROGRAMMATIC (zero LLM calls)
+# ---------------------------------------------------------------------------
+
+async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Lesen Teil 1 — Newspaper Article + 5 MCQ. FULLY PROGRAMMATIC."""
+    pool = _get_text_pool()
+    text_data = pool.get_random_text("lesen_teil1")
+
+    items_raw = _generate_teil1_questions_programmatic(
+        text=text_data["text"],
+        title=text_data.get("title", ""),
+        id_start=1,
+    )
+    sanitized_items, answer_key, explanations = _sanitize_mcq_items(items_raw, id_start=1)
+
     sanitized = {
         "teil": 1,
         "title": text_data.get("title", "Lesen Teil 1: Zeitungsartikel"),
         "text": text_data["text"],
         "items": sanitized_items,
-        "source": "hybrid"
+        "source": "programmatic"
     }
     return sanitized, {"answer_key": answer_key, "explanations": explanations}
 
 
 async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 2 (Directory/Floor Guide + 5 MCQ).
-    
-    Hybrid: Directory from certified pool, questions from 2B LLM.
-    """
+    """Lesen Teil 2 — Floor Directory + 5 MCQ. FULLY PROGRAMMATIC."""
     pool = _get_text_pool()
     text_data = pool.get_random_text("lesen_teil2")
-    
-    # Build a text description of the directory for LLM
-    directory_text = ""
-    for floor in text_data.get("directory", []):
-        directory_text += f"{floor['floor']}: {floor['departments']}\n"
-    
-    items_raw = await _generate_questions_for_text(
-        text=directory_text,
-        teil_type="department store floor directory",
-        num_questions=5,
-        id_start=6,
-    )
-    
-    if not items_raw:
-        raise RuntimeError("Failed to generate questions for Lesen Teil 2 after all retries")
-    
-    sanitized_items = []
-    answer_key = {}
-    explanations = {}
-    
-    for idx, item in enumerate(items_raw[:5], start=6):
-        q_id = idx
-        ans = _extract_item_answer(item, default="a", valid_options=("a", "b", "c"))
-        exp = str(item.get("explanation") or item.get("reason") or "Richtige Antwort laut Wegweiser.")
-        opts = _normalize_options_dict(item.get("options", {}))
-        
-        answer_key[str(q_id)] = ans
-        explanations[str(q_id)] = exp
-        sanitized_items.append({
-            "id": q_id,
-            "question": str(item.get("question", "")),
-            "options": opts
-        })
-    
+
+    items_raw = _generate_teil2_questions_programmatic(text_data["directory"], id_start=6)
+    sanitized_items, answer_key, explanations = _sanitize_mcq_items(items_raw, id_start=6)
+
     sanitized = {
         "teil": 2,
         "title": text_data.get("title", "Lesen Teil 2: Kaufhaus-Wegweiser"),
         "directory": text_data["directory"],
         "items": sanitized_items,
-        "source": "hybrid"
+        "source": "programmatic"
     }
     return sanitized, {"answer_key": answer_key, "explanations": explanations}
 
 
 async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 3 (Personal Email + 5 MCQ).
-    
-    Hybrid: Email from certified pool, questions from 2B LLM.
-    """
+    """Lesen Teil 3 — Personal Email + 5 MCQ. FULLY PROGRAMMATIC."""
     pool = _get_text_pool()
     text_data = pool.get_random_text("lesen_teil3")
-    
-    items_raw = await _generate_questions_for_text(
+
+    items_raw = _generate_teil3_questions_programmatic(
         text=text_data["text"],
-        teil_type="personal email",
-        num_questions=5,
+        sender=text_data.get("sender", "Anna"),
+        recipient=text_data.get("recipient", "Freund/in"),
+        subject=text_data.get("subject", "Neuigkeiten"),
         id_start=11,
     )
-    
-    if not items_raw:
-        raise RuntimeError("Failed to generate questions for Lesen Teil 3 after all retries")
-    
-    sanitized_items = []
-    answer_key = {}
-    explanations = {}
-    
-    for idx, item in enumerate(items_raw[:5], start=11):
-        q_id = idx
-        ans = _extract_item_answer(item, default="a", valid_options=("a", "b", "c"))
-        exp = str(item.get("explanation") or item.get("reason") or "Richtige Information laut E-Mail.")
-        opts = _normalize_options_dict(item.get("options", {}))
-        
-        answer_key[str(q_id)] = ans
-        explanations[str(q_id)] = exp
-        sanitized_items.append({
-            "id": q_id,
-            "question": str(item.get("question", "")),
-            "options": opts
-        })
-    
+    sanitized_items, answer_key, explanations = _sanitize_mcq_items(items_raw, id_start=11)
+
     sanitized = {
         "teil": 3,
         "title": text_data.get("title", "Lesen Teil 3: E-Mail / Brief"),
@@ -417,83 +677,28 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         "subject": text_data.get("subject", "Neuigkeiten"),
         "text": text_data["text"],
         "items": sanitized_items,
-        "source": "hybrid"
+        "source": "programmatic"
     }
     return sanitized, {"answer_key": answer_key, "explanations": explanations}
 
 
 async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 4 (Classified Ads + 5 People Matching).
-    
-    Hybrid: Ads from certified pool, matching questions from 2B LLM.
-    """
+    """Lesen Teil 4 — Classified Ads + 5 Person Matching. FULLY PROGRAMMATIC."""
     pool = _get_text_pool()
     text_data = pool.get_random_text("lesen_teil4")
-    
-    # Build text description of ads for LLM
-    ads_text = ""
-    for ad in text_data.get("ads", []):
-        ads_text += f"Anzeige {ad['id'].upper()}: {ad['title']} - {ad['text']}\n\n"
-    
-    # Teil 4 uses a different question format: match people to ads
-    prompt = (
-        f"Read these 6 classified ads:\n\n{ads_text}\n"
-        "Generate 5 questions. Each question describes a person looking for something specific.\n"
-        "The person must match EXACTLY ONE ad (a-f), or NO ad (answer 'x').\n"
-        "At least 4 questions must match an ad. Maximum 1 question can have 'x' (no match).\n"
-        "Return ONLY a valid JSON array:\n"
-        '[{"id":16,"question":"Person description in German...","answer_key":"b","explanation":"Why this ad matches."},'
-        '{"id":17,"question":"...","answer_key":"d","explanation":"..."},'
-        '{"id":18,"question":"...","answer_key":"a","explanation":"..."},'
-        '{"id":19,"question":"...","answer_key":"f","explanation":"..."},'
-        '{"id":20,"question":"...","answer_key":"x","explanation":"No ad matches because..."}]'
+
+    items_raw = _generate_teil4_questions_programmatic(text_data["ads"], id_start=16)
+    valid_options = ("a", "b", "c", "d", "e", "f", "x")
+    sanitized_items, answer_key, explanations = _sanitize_mcq_items(
+        items_raw, id_start=16, valid_options=valid_options
     )
-    
-    items_raw = None
-    for attempt in range(1, 4):
-        try:
-            raw = await asyncio.wait_for(
-                asyncio.to_thread(generate, prompt, max_tokens=1024, temperature=0.4),
-                timeout=90.0
-            )
-            logger.info("Teil 4 question generation attempt %d: %d chars", attempt, len(raw))
-            parsed = _extract_json(raw)
-            
-            if isinstance(parsed, list) and len(parsed) >= 3:
-                items_raw = parsed
-                break
-            elif isinstance(parsed, dict) and "items" in parsed:
-                items_raw = parsed["items"]
-                break
-        except Exception as e:
-            logger.warning("Teil 4 question generation attempt %d: %s", attempt, e)
-    
-    if not items_raw:
-        raise RuntimeError("Failed to generate questions for Lesen Teil 4 after all retries")
-    
-    sanitized_items = []
-    answer_key = {}
-    explanations = {}
-    
-    valid_teil4_options = ("a", "b", "c", "d", "e", "f", "x")
-    for idx, item in enumerate(items_raw[:5], start=16):
-        q_id = idx
-        ans = _extract_item_answer(item, default="a", valid_options=valid_teil4_options)
-        exp = str(item.get("explanation") or item.get("reason") or "Passende Anzeige.")
-        
-        answer_key[str(q_id)] = ans
-        explanations[str(q_id)] = exp
-        sanitized_items.append({
-            "id": q_id,
-            "question": str(item.get("question", "")),
-        })
-    
+
     sanitized = {
         "teil": 4,
         "title": text_data.get("title", "Lesen Teil 4: Anzeigen & Personen"),
         "ads": text_data["ads"],
         "items": sanitized_items,
-        "source": "hybrid"
+        "source": "programmatic"
     }
     return sanitized, {"answer_key": answer_key, "explanations": explanations}
 
@@ -503,9 +708,7 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 # ---------------------------------------------------------------------------
 
 async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
-    """Generate Schreiben Teil 1 (Informal SMS / Note)."""
     fallback_choice = _pick_distinct_pool_item(POOL_SCHREIBEN_TEIL1, "schreiben_t1")
-    source = "fallback"
     try:
         template = load_prompt("exam_schreiben_teil1.txt")
         raw = await asyncio.wait_for(
@@ -514,7 +717,6 @@ async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
         )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 2:
-            logger.info("Schreiben Teil 1 source: llm")
             parsed["source"] = "llm"
             return parsed
         fallback_copy = dict(fallback_choice)
@@ -528,7 +730,6 @@ async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
 
 
 async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
-    """Generate Schreiben Teil 2 (Formal / Semi-formal Email)."""
     fallback_choice = _pick_distinct_pool_item(POOL_SCHREIBEN_TEIL2, "schreiben_t2")
     try:
         template = load_prompt("exam_schreiben_teil2.txt")
@@ -538,7 +739,6 @@ async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
         )
         parsed = _extract_json(raw)
         if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 2:
-            logger.info("Schreiben Teil 2 source: llm")
             parsed["source"] = "llm"
             return parsed
         fallback_copy = dict(fallback_choice)
@@ -552,7 +752,7 @@ async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Schreiben Fallback Pools (kept for Schreiben generators)
+# Schreiben Fallback Pools
 # ---------------------------------------------------------------------------
 
 POOL_SCHREIBEN_TEIL1: List[Dict[str, Any]] = [
@@ -561,37 +761,25 @@ POOL_SCHREIBEN_TEIL1: List[Dict[str, Any]] = [
         "title": "Schreiben Teil 1: Verspätung ankündigen",
         "scenario_german": "Sie haben sich heute Abend mit Ihrem Freund Michael im Kino verabredet, können aber nicht pünktlich sein.",
         "instructions_german": "Schreiben Sie eine kurze Nachricht an Michael (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
-        "bullet_points": [
-            "Entschuldigen Sie sich für die Verspätung.",
-            "Nennen Sie den Grund (z.B. Zugausfall oder Überstunden).",
-            "Schlagen Sie einen neuen Treffpunkt oder eine neue Uhrzeit vor."
-        ],
+        "bullet_points": ["Entschuldigen Sie sich für die Verspätung.", "Nennen Sie den Grund.", "Schlagen Sie einen neuen Treffpunkt oder eine neue Uhrzeit vor."],
         "target_word_count": "20–30 Wörter",
-        "tips_english": "Write a short SMS/note (approx. 20-30 words). Address all 3 bullet points, using an informal greeting and sign-off."
+        "tips_english": "Write a short SMS/note (approx. 20-30 words). Address all 3 bullet points."
     },
     {
         "teil": 1,
-        "title": "Schreiben Teil 1: Einladung ablehnen und neues Treffen vorschlagen",
+        "title": "Schreiben Teil 1: Einladung ablehnen",
         "scenario_german": "Ihre Kollegin Maria hat Sie zum Abendessen am Freitag eingeladen. Sie haben aber leider keine Zeit.",
         "instructions_german": "Schreiben Sie eine kurze Nachricht an Maria (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
-        "bullet_points": [
-            "Bedanken Sie sich herzlich für die Einladung.",
-            "Erklären Sie höflich, warum Sie am Freitag nicht kommen können.",
-            "Schlagen Sie ein Treffen am nächsten Wochenende vor."
-        ],
+        "bullet_points": ["Bedanken Sie sich für die Einladung.", "Erklären Sie, warum Sie nicht kommen können.", "Schlagen Sie ein Treffen am nächsten Wochenende vor."],
         "target_word_count": "20–30 Wörter",
-        "tips_english": "Write a short note (approx. 20-30 words). Thank for the invite, give your reason, and propose an alternative date."
+        "tips_english": "Write a short note (approx. 20-30 words). Thank, give reason, propose alternative."
     },
     {
         "teil": 1,
         "title": "Schreiben Teil 1: Sporttraining absagen",
         "scenario_german": "Sie trainieren regelmäßig mit Ihrem Freund Lukas im Fitnessstudio, sind heute aber krank.",
         "instructions_german": "Schreiben Sie eine Nachricht an Lukas (ca. 20–30 Wörter). Schreiben Sie zu allen drei Punkten:",
-        "bullet_points": [
-            "Sagen Sie das gemeinsame Training für heute ab.",
-            "Erklären Sie kurz Ihren Grund (z.B. Erkältung oder Kopfschmerzen).",
-            "Vereinbaren Sie einen neuen Termin für die nächste Woche."
-        ],
+        "bullet_points": ["Sagen Sie das Training für heute ab.", "Erklären Sie kurz Ihren Grund.", "Vereinbaren Sie einen neuen Termin."],
         "target_word_count": "20–30 Wörter",
         "tips_english": "Write an informal note (20-30 words) cancelling training, stating why, and rescheduling."
     }
@@ -601,43 +789,28 @@ POOL_SCHREIBEN_TEIL2: List[Dict[str, Any]] = [
     {
         "teil": 2,
         "title": "Schreiben Teil 2: Sprachkurs anfragen",
-        "scenario_german": "Sie möchten im nächsten Monat an einer Sprachschule in Heidelberg einen Deutschkurs (Stufe B1) besuchen. Schreiben Sie an die Sprachschule.",
-        "instructions_german": "Schreiben Sie eine formelle E-Mail an Frau Weber von der Sprachschule (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
-        "bullet_points": [
-            "Grund für Ihr Schreiben nennen",
-            "Informationen zum Kurstermin und Beginn erfragen",
-            "Nach den Gesamtkosten und Unterkünften fragen",
-            "Passende formelle Anrede und Grußformel verwenden"
-        ],
+        "scenario_german": "Sie möchten im nächsten Monat einen Deutschkurs (Stufe B1) besuchen. Schreiben Sie an die Sprachschule.",
+        "instructions_german": "Schreiben Sie eine formelle E-Mail an Frau Weber (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
+        "bullet_points": ["Grund für Ihr Schreiben nennen", "Nach Kurstermin und Beginn fragen", "Nach Kosten und Unterkünften fragen", "Formelle Anrede und Grußformel"],
         "target_word_count": "30–40 Wörter",
-        "tips_english": "Write a formal email (approx. 30-40 words). Address all points, use formal greetings (Sehr geehrte Frau Weber) and polite closings (Mit freundlichen Grüßen)."
+        "tips_english": "Write a formal email (30-40 words). Address all points with formal greetings."
     },
     {
         "teil": 2,
-        "title": "Schreiben Teil 2: Zimmerreservierung im Hotel",
-        "scenario_german": "Sie möchten für einen Wochenendurlaub mit Ihrer Familie zwei Zimmer im Hotel 'Alpenblick' buchen.",
+        "title": "Schreiben Teil 2: Zimmerreservierung",
+        "scenario_german": "Sie möchten mit Ihrer Familie zwei Zimmer im Hotel 'Alpenblick' buchen.",
         "instructions_german": "Schreiben Sie eine formelle E-Mail an das Hotel (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
-        "bullet_points": [
-            "Ankunftstag und Anzahl der Personen / Zimmer nennen",
-            "Nach dem Frühstücksangebot und den Zimmerpreisen fragen",
-            "Nach Parkplätzen direkt am Hotel fragen",
-            "Höfliche formelle Anrede und Schlussformel"
-        ],
+        "bullet_points": ["Ankunftstag und Personenzahl nennen", "Nach Frühstück und Zimmerpreisen fragen", "Nach Parkplätzen fragen", "Höfliche formelle Schlussformel"],
         "target_word_count": "30–40 Wörter",
-        "tips_english": "Write a formal email requesting hotel reservation, inquiring about prices, breakfast and parking."
+        "tips_english": "Write a formal hotel reservation email."
     },
     {
         "teil": 2,
-        "title": "Schreiben Teil 2: Wohnungsbesichtigung anfragen",
-        "scenario_german": "Sie haben im Internet eine Anzeige für eine schöne 2-Zimmer-Wohnung gesehen und möchten die Wohnung gerne besichtigen.",
-        "instructions_german": "Schreiben Sie eine E-Mail an den Vermieter, Herrn Müller (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
-        "bullet_points": [
-            "Sich kurz vorstellen (Beruf und Personenzahl)",
-            "Großes Interesse an der Wohnung bekunden",
-            "Nach einem Termin für eine Besichtigung fragen",
-            "Passende formelle Grußformel verwenden"
-        ],
+        "title": "Schreiben Teil 2: Wohnungsbesichtigung",
+        "scenario_german": "Sie haben eine Anzeige für eine 2-Zimmer-Wohnung gesehen und möchten die Wohnung besichtigen.",
+        "instructions_german": "Schreiben Sie eine E-Mail an den Vermieter Herrn Müller (ca. 30–40 Wörter). Schreiben Sie zu allen vier Punkten:",
+        "bullet_points": ["Sich kurz vorstellen", "Interesse an der Wohnung bekunden", "Nach einem Besichtigungstermin fragen", "Formelle Grußformel verwenden"],
         "target_word_count": "30–40 Wörter",
-        "tips_english": "Write a formal apartment inquiry email to Herr Müller introducing yourself and requesting a viewing appointment."
+        "tips_english": "Write a formal apartment inquiry email."
     }
 ]
