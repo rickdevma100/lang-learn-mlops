@@ -240,30 +240,103 @@ THEMES_TEIL3 = [
 # ---------------------------------------------------------------------------
 
 async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 1 (Newspaper Article, 180-220 words). Returns (sanitized_teil, answer_key)."""
+    """Generate Lesen Teil 1 (Newspaper Article, 180-220 words) using two-pass generation.
+    
+    Pass 1: Generate ONLY the article text (plain German prose, no JSON).
+    Pass 2: Generate questions based on that text (JSON array).
+    """
     selected_theme = random.choice(THEMES_TEIL1)
     fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL1, "lesen_t1")
     source = "fallback"
     try:
-        template = load_prompt("exam_lesen_teil1.txt")
-        prompt_with_theme = f"IMPORTANT: The \"text\" field MUST contain at least 150 words of German. Write a LONG, detailed article.\n\n{template}\n\nTopic: {selected_theme}"
-        raw = await asyncio.wait_for(
-            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=2048, temperature=0.75),
+        # --- PASS 1: Generate article text only ---
+        text_prompt = (
+            f"Write a German newspaper article about: {selected_theme}\n\n"
+            "Requirements:\n"
+            "- Write EXACTLY 180 to 220 words in German\n"
+            "- Use A2-level vocabulary\n"
+            "- Include 4 paragraphs\n"
+            "- Include a person's name and a direct quote\n"
+            "- Make it read like a real Zeitung/Magazin article\n"
+            "- Do NOT include a title, just the article body text\n"
+            "- Do NOT use JSON format, just plain German text\n\n"
+            "Write the article now:"
+        )
+        article_text = await asyncio.wait_for(
+            asyncio.to_thread(generate_exam, text_prompt, max_tokens=1024, temperature=0.75),
             timeout=240.0
         )
-        logger.info("Lesen Teil 1 raw output: %d chars", len(raw))
-        parsed = _extract_json(raw)
-        text_word_count = len(parsed.get("text", "").split()) if parsed else 0
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 40:
-            data = parsed
-            source = "llm"
-            if len(data["items"]) == 4:
-                data["items"].append(fallback_choice["items"][4])
-            else:
-                data["items"] = data["items"][:5]
-        else:
-            logger.info("Lesen Teil 1 LLM rejected: text=%d words (need 40+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
+        article_text = article_text.strip()
+        # Remove any markdown formatting the model might add
+        article_text = re.sub(r'^#+\s+.*\n', '', article_text)
+        article_text = re.sub(r'^\*\*.*?\*\*\n?', '', article_text)
+        article_text = article_text.strip()
+        
+        text_word_count = len(article_text.split())
+        logger.info("Lesen Teil 1 Pass 1: %d words article generated", text_word_count)
+        
+        if text_word_count < 40:
+            logger.info("Lesen Teil 1 Pass 1 too short (%d words), using fallback", text_word_count)
             data = fallback_choice
+        else:
+            # --- PASS 2: Generate questions based on the article ---
+            questions_prompt = (
+                f"Read this German article:\n\n{article_text}\n\n"
+                "Generate 5 multiple-choice reading comprehension questions about this article.\n"
+                "Return ONLY a valid JSON array (no markdown, no explanation):\n"
+                '[{"id":1,"question":"Question in German?","options":{"a":"Option","b":"Option","c":"Option"},"answer_key":"b","explanation":"Why this is correct."},'
+                '{"id":2,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"a","explanation":"..."},'
+                '{"id":3,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"c","explanation":"..."},'
+                '{"id":4,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"a","explanation":"..."},'
+                '{"id":5,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"b","explanation":"..."}]'
+            )
+            questions_raw = await asyncio.wait_for(
+                asyncio.to_thread(generate_exam, questions_prompt, max_tokens=1024, temperature=0.5),
+                timeout=240.0
+            )
+            logger.info("Lesen Teil 1 Pass 2: %d chars questions output", len(questions_raw))
+            
+            # Try to parse questions as JSON array
+            items = None
+            parsed_q = _extract_json(questions_raw)
+            if isinstance(parsed_q, list) and len(parsed_q) >= 3:
+                items = parsed_q
+            elif isinstance(parsed_q, dict) and "items" in parsed_q:
+                items = parsed_q["items"]
+            else:
+                # Try direct JSON array parse
+                try:
+                    cleaned = questions_raw.strip()
+                    cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
+                    cleaned = re.sub(r'\n?\s*```\s*$', '', cleaned)
+                    arr = json.loads(cleaned)
+                    if isinstance(arr, list) and len(arr) >= 3:
+                        items = arr
+                except Exception:
+                    pass
+            
+            if items and len(items) >= 3:
+                # Generate a title from the article
+                first_sentence = article_text.split('.')[0] if '.' in article_text else article_text[:60]
+                title = first_sentence.strip()[:80]
+                
+                data = {
+                    "title": title,
+                    "text": article_text,
+                    "items": items[:5],
+                }
+                # Pad items if less than 5
+                while len(data["items"]) < 5:
+                    pad_idx = len(data["items"])
+                    if pad_idx < len(fallback_choice["items"]):
+                        data["items"].append(fallback_choice["items"][pad_idx])
+                    else:
+                        break
+                source = "llm"
+                logger.info("Lesen Teil 1 two-pass SUCCESS: %d words, %d items", text_word_count, len(data["items"]))
+            else:
+                logger.info("Lesen Teil 1 Pass 2 failed to parse questions, using fallback")
+                data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 1 using fallback: %s", e)
         data = fallback_choice
@@ -358,30 +431,108 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
 
 
 async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    """Generate Lesen Teil 3 (Personal Email, 200-250 words). Returns (sanitized_teil, answer_key)."""
+    """Generate Lesen Teil 3 (Personal Email, 200-250 words) using two-pass generation.
+    
+    Pass 1: Generate ONLY the email text (plain German, no JSON).
+    Pass 2: Generate questions based on that email (JSON array).
+    """
     selected_theme = random.choice(THEMES_TEIL3)
     fallback_choice = _pick_distinct_pool_item(POOL_LESEN_TEIL3, "lesen_t3")
     source = "fallback"
     try:
-        template = load_prompt("exam_lesen_teil3.txt")
-        prompt_with_theme = f"IMPORTANT: The \"text\" field MUST contain at least 150 words of German. Write a LONG, detailed email.\n\n{template}\n\nContext: {selected_theme}"
-        raw = await asyncio.wait_for(
-            asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=2048, temperature=0.75),
+        # Pick random sender/recipient names
+        senders = ["Gülcan", "Anna", "Markus", "Stefan", "Lena", "Tobias", "Maria"]
+        recipients = ["Sonja", "Thomas", "Freund", "Schwester", "Cousin"]
+        sender = random.choice(senders)
+        recipient = random.choice(recipients)
+        
+        # --- PASS 1: Generate email text only ---
+        text_prompt = (
+            f"Write a personal German email from {sender} to {recipient} about: {selected_theme}\n\n"
+            "Requirements:\n"
+            "- Write EXACTLY 200 to 250 words in German\n"
+            "- Use A2-level vocabulary\n"
+            "- Start with 'Liebe/Lieber {recipient},'\n"
+            f"- End with 'Bis bald!\\n{sender}'\n"
+            "- Include 4-5 paragraphs about daily life, studies, new city, flat, etc.\n"
+            "- Make it sound natural and personal\n"
+            "- Do NOT use JSON format, just plain German email text\n\n"
+            "Write the email now:"
+        )
+        email_text = await asyncio.wait_for(
+            asyncio.to_thread(generate_exam, text_prompt, max_tokens=1024, temperature=0.75),
             timeout=240.0
         )
-        logger.info("Lesen Teil 3 raw output: %d chars", len(raw))
-        parsed = _extract_json(raw)
-        text_word_count = len(parsed.get("text", "").split()) if parsed else 0
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3 and text_word_count >= 40:
-            data = parsed
-            source = "llm"
-            if len(data["items"]) == 4:
-                data["items"].append(fallback_choice["items"][4])
-            else:
-                data["items"] = data["items"][:5]
-        else:
-            logger.info("Lesen Teil 3 LLM rejected: text=%d words (need 40+), items=%d", text_word_count, len(parsed.get("items", [])) if parsed else 0)
+        email_text = email_text.strip()
+        # Remove any markdown formatting
+        email_text = re.sub(r'^#+\s+.*\n', '', email_text)
+        email_text = re.sub(r'^\*\*.*?\*\*\n?', '', email_text)
+        email_text = email_text.strip()
+        
+        text_word_count = len(email_text.split())
+        logger.info("Lesen Teil 3 Pass 1: %d words email generated", text_word_count)
+        
+        if text_word_count < 40:
+            logger.info("Lesen Teil 3 Pass 1 too short (%d words), using fallback", text_word_count)
             data = fallback_choice
+        else:
+            # --- PASS 2: Generate questions based on the email ---
+            questions_prompt = (
+                f"Read this personal German email:\n\n{email_text}\n\n"
+                "Generate 5 multiple-choice reading comprehension questions (numbered 11-15) about this email.\n"
+                "Return ONLY a valid JSON array (no markdown, no explanation):\n"
+                '[{"id":11,"question":"Question in German?","options":{"a":"Option","b":"Option","c":"Option"},"answer_key":"b","explanation":"Why."},'
+                '{"id":12,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"a","explanation":"..."},'
+                '{"id":13,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"c","explanation":"..."},'
+                '{"id":14,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"a","explanation":"..."},'
+                '{"id":15,"question":"...","options":{"a":"...","b":"...","c":"..."},"answer_key":"b","explanation":"..."}]'
+            )
+            questions_raw = await asyncio.wait_for(
+                asyncio.to_thread(generate_exam, questions_prompt, max_tokens=1024, temperature=0.5),
+                timeout=240.0
+            )
+            logger.info("Lesen Teil 3 Pass 2: %d chars questions output", len(questions_raw))
+            
+            # Try to parse questions
+            items = None
+            parsed_q = _extract_json(questions_raw)
+            if isinstance(parsed_q, list) and len(parsed_q) >= 3:
+                items = parsed_q
+            elif isinstance(parsed_q, dict) and "items" in parsed_q:
+                items = parsed_q["items"]
+            else:
+                try:
+                    cleaned = questions_raw.strip()
+                    cleaned = re.sub(r'^```(?:json)?\s*\n?', '', cleaned)
+                    cleaned = re.sub(r'\n?\s*```\s*$', '', cleaned)
+                    arr = json.loads(cleaned)
+                    if isinstance(arr, list) and len(arr) >= 3:
+                        items = arr
+                except Exception:
+                    pass
+            
+            if items and len(items) >= 3:
+                # Extract subject from email (first line after greeting or theme)
+                subject = selected_theme[:50] if selected_theme else "Neuigkeiten"
+                
+                data = {
+                    "sender": sender,
+                    "recipient": recipient,
+                    "subject": subject,
+                    "text": email_text,
+                    "items": items[:5],
+                }
+                while len(data["items"]) < 5:
+                    pad_idx = len(data["items"])
+                    if pad_idx < len(fallback_choice["items"]):
+                        data["items"].append(fallback_choice["items"][pad_idx])
+                    else:
+                        break
+                source = "llm"
+                logger.info("Lesen Teil 3 two-pass SUCCESS: %d words, %d items", text_word_count, len(data["items"]))
+            else:
+                logger.info("Lesen Teil 3 Pass 2 failed to parse questions, using fallback")
+                data = fallback_choice
     except Exception as e:
         logger.warning("Lesen Teil 3 using fallback: %s", e)
         data = fallback_choice
