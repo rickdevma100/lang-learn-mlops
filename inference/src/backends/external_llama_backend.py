@@ -47,17 +47,17 @@ def health_check() -> bool:
 def generate_external(
     prompt: str,
     max_tokens: int = 1024,
-    temperature: float = 0.4,
+    temperature: float = 0.3,
 ) -> str:
-    """Generate text using the external llama-server (non-streaming).
+    """Generate text using the external llama-server via OpenAI-compatible chat completion.
 
-    Calls llama-server's native /completion endpoint.
+    Applies the model's native chat template and returns the generated content.
     """
     client = _get_client()
 
     payload = {
-        "prompt": prompt,
-        "n_predict": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": 0.9,
         "top_k": 40,
@@ -66,13 +66,14 @@ def generate_external(
         "stop": ["</s>", "<|endoftext|>", "<|im_end|>", "<end_of_turn>"],
     }
 
-    logger.info("Calling external LLM at %s/completion (max_tokens=%d)", EXTERNAL_LLM_URL, max_tokens)
-    response = client.post("/completion", json=payload)
+    logger.info("Calling external LLM at %s/v1/chat/completions (max_tokens=%d)", EXTERNAL_LLM_URL, max_tokens)
+    response = client.post("/v1/chat/completions", json=payload)
     response.raise_for_status()
 
     data = response.json()
-    content = (data.get("content") or "").strip()
-    tokens_used = data.get("tokens_predicted", len(content.split()))
+    msg = data.get("choices", [{}])[0].get("message", {})
+    content = (msg.get("content") or msg.get("reasoning_content") or "").strip()
+    tokens_used = data.get("usage", {}).get("completion_tokens", len(content.split()))
     logger.info("External LLM response: %d chars, ~%d tokens", len(content), tokens_used)
     return content
 
@@ -80,17 +81,14 @@ def generate_external(
 def generate_external_stream(
     prompt: str,
     max_tokens: int = 1024,
-    temperature: float = 0.4,
+    temperature: float = 0.3,
 ) -> Iterable[str]:
-    """Stream tokens from the external llama-server.
-
-    Uses SSE streaming via /completion with stream=true.
-    """
+    """Stream tokens from the external llama-server via SSE."""
     client = _get_client()
 
     payload = {
-        "prompt": prompt,
-        "n_predict": max_tokens,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
         "temperature": temperature,
         "top_p": 0.9,
         "top_k": 40,
@@ -99,7 +97,7 @@ def generate_external_stream(
         "stop": ["</s>", "<|endoftext|>", "<|im_end|>", "<end_of_turn>"],
     }
 
-    with client.stream("POST", "/completion", json=payload) as response:
+    with client.stream("POST", "/v1/chat/completions", json=payload) as response:
         response.raise_for_status()
         for line in response.iter_lines():
             if not line or not line.startswith("data: "):
@@ -109,10 +107,9 @@ def generate_external_stream(
                 break
             try:
                 chunk = json.loads(data_str)
-                token = chunk.get("content", "")
+                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                token = delta.get("content") or delta.get("reasoning_content") or ""
                 if token:
                     yield token
-                if chunk.get("stop", False):
-                    break
             except (ValueError, KeyError, IndexError):
                 continue
