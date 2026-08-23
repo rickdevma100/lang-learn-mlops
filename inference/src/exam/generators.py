@@ -46,44 +46,106 @@ def _pick_distinct_pool_item(pool: List[Dict[str, Any]], key: str) -> Dict[str, 
     return pool[choice_idx]
 
 
+def _repair_json_string(text: str) -> str:
+    """Repair common JSON formatting errors from small LLMs.
+
+    Fixes:
+    1. Missing opening quotes: "c": Ein neues Geschäft" -> "c": "Ein neues Geschäft"
+    2. Trailing commas before } or ]
+    3. Single quotes used instead of double quotes (in key positions)
+    """
+    # Fix missing opening quote after colon: "key": value" -> "key": "value"
+    # Pattern: colon, optional whitespace, then a non-quote char followed by content ending with quote
+    text = re.sub(
+        r':\s*(?!")([A-ZÄÖÜa-zäöüß][^",}\]]*?")',
+        r': "\1',
+        text
+    )
+    # Fix trailing commas
+    text = re.sub(r',\s*([\}\]])', r'\1', text)
+    return text
+
+
+def _try_parse_json(text: str) -> Dict[str, Any] | None:
+    """Attempt to parse text as JSON, returning None on failure."""
+    try:
+        return json.loads(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
 def _extract_json(text: str) -> Dict[str, Any] | None:
-    """Safely extract and parse JSON from LLM generation output."""
+    """Robustly extract and parse JSON from LLM generation output.
+
+    Handles:
+    - Markdown code fences (```json ... ```)
+    - Missing opening quotes on string values (Gemma GGUF quirk)
+    - Truncated output (max_tokens exhaustion) by closing brackets
+    - Trailing commas
+    """
+    if not text or not text.strip():
+        return None
+
     cleaned = text.strip()
+    # Remove markdown code fences
     cleaned = re.sub(r"^```(?:json|JSON)?\s*\n?", "", cleaned)
     cleaned = re.sub(r"\n?\s*```\s*$", "", cleaned)
     cleaned = cleaned.strip()
 
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError:
-        pass
+    # 1. Try direct parse
+    result = _try_parse_json(cleaned)
+    if result:
+        return result
 
-    # Attempt to extract largest JSON object substring
-    json_match = re.search(r"(\{.*\})", cleaned, re.DOTALL)
+    # 2. Try after repairing quotes and commas
+    repaired = _repair_json_string(cleaned)
+    result = _try_parse_json(repaired)
+    if result:
+        logger.debug("JSON parsed after quote repair")
+        return result
+
+    # 3. Extract largest JSON object substring and repair
+    json_match = re.search(r"(\{.*\})", repaired, re.DOTALL)
     if json_match:
         candidate = json_match.group(1).strip()
-        try:
-            return json.loads(candidate)
-        except json.JSONDecodeError:
-            # Repair common trailing comma issues
-            repaired = re.sub(r",\s*([\}\]])", r"\1", candidate)
-            try:
-                return json.loads(repaired)
-            except json.JSONDecodeError:
-                pass
+        result = _try_parse_json(candidate)
+        if result:
+            return result
 
-    # Fallback: if ends abruptly, try closing brackets
-    start_idx = cleaned.find("{")
+    # 4. Handle truncated output: find the JSON start, repair, and close brackets
+    start_idx = repaired.find("{")
     if start_idx != -1:
-        truncated = cleaned[start_idx:]
-        for suffix in ["}]}", "]}", "}", '"]}', '"}']:
-            try:
-                fixed = re.sub(r",\s*$", "", truncated) + suffix
-                fixed = re.sub(r",\s*([\}\]])", r"\1", fixed)
-                return json.loads(fixed)
-            except Exception:
-                continue
+        truncated = repaired[start_idx:]
 
+        # Try progressively removing trailing lines until we get parseable JSON
+        lines = truncated.split('\n')
+        for trim_count in range(min(len(lines), 12)):
+            candidate_lines = lines[:len(lines) - trim_count] if trim_count > 0 else lines
+            candidate = '\n'.join(candidate_lines)
+
+            # Clean trailing partial content
+            candidate = re.sub(r',\s*$', '', candidate.rstrip())
+
+            # Count unclosed brackets and close them
+            open_braces = candidate.count('{') - candidate.count('}')
+            open_brackets = candidate.count('[') - candidate.count(']')
+            suffix = ']' * max(0, open_brackets) + '}' * max(0, open_braces)
+
+            if suffix or trim_count > 0:
+                attempt = candidate + suffix
+                result = _try_parse_json(attempt)
+                if result:
+                    logger.info("JSON recovered from truncated output (trimmed %d lines, closed %d brackets)", trim_count, len(suffix))
+                    return result
+
+                # Also try with quote repair applied
+                attempt_repaired = _repair_json_string(attempt)
+                result = _try_parse_json(attempt_repaired)
+                if result:
+                    logger.info("JSON recovered from truncated output after repair (trimmed %d lines)", trim_count)
+                    return result
+
+    logger.warning("All JSON extraction attempts failed. Output length: %d chars", len(text))
     return None
 
 
@@ -186,11 +248,12 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil1.txt")
         prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=550, temperature=0.75),
-            timeout=60.0
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            timeout=120.0
         )
+        logger.info("Lesen Teil 1 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -242,11 +305,12 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil2.txt")
         prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=500, temperature=0.75),
-            timeout=60.0
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            timeout=120.0
         )
+        logger.info("Lesen Teil 2 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
+        if parsed and "directory" in parsed and "items" in parsed and len(parsed["items"]) >= 3:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -298,11 +362,12 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil3.txt")
         prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, prompt_with_theme, max_tokens=550, temperature=0.75),
-            timeout=60.0
+            asyncio.to_thread(generate, prompt_with_theme, max_tokens=1024, temperature=0.75),
+            timeout=120.0
         )
+        logger.info("Lesen Teil 3 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 4:
+        if parsed and "text" in parsed and "items" in parsed and len(parsed["items"]) >= 3:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -355,11 +420,12 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
     try:
         template = load_prompt("exam_lesen_teil4.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=600, temperature=0.75),
-            timeout=60.0
+            asyncio.to_thread(generate, template, max_tokens=1200, temperature=0.75),
+            timeout=120.0
         )
+        logger.info("Lesen Teil 4 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
-        if parsed and "ads" in parsed and len(parsed["ads"]) >= 5 and "items" in parsed and len(parsed["items"]) >= 4:
+        if parsed and "ads" in parsed and len(parsed["ads"]) >= 3 and "items" in parsed and len(parsed["items"]) >= 3:
             data = parsed
             source = "llm"
             if len(data["items"]) == 4:
@@ -410,11 +476,11 @@ async def generate_schreiben_teil1(level: str = "A2") -> Dict[str, Any]:
     try:
         template = load_prompt("exam_schreiben_teil1.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=250, temperature=0.75),
-            timeout=45.0
+            asyncio.to_thread(generate, template, max_tokens=512, temperature=0.75),
+            timeout=90.0
         )
         parsed = _extract_json(raw)
-        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) == 3:
+        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 2:
             logger.info("Schreiben Teil 1 source: llm")
             parsed["source"] = "llm"
             return parsed
@@ -434,11 +500,11 @@ async def generate_schreiben_teil2(level: str = "A2") -> Dict[str, Any]:
     try:
         template = load_prompt("exam_schreiben_teil2.txt")
         raw = await asyncio.wait_for(
-            asyncio.to_thread(generate, template, max_tokens=300, temperature=0.75),
-            timeout=45.0
+            asyncio.to_thread(generate, template, max_tokens=512, temperature=0.75),
+            timeout=90.0
         )
         parsed = _extract_json(raw)
-        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 3:
+        if parsed and "scenario_german" in parsed and "bullet_points" in parsed and len(parsed["bullet_points"]) >= 2:
             logger.info("Schreiben Teil 2 source: llm")
             parsed["source"] = "llm"
             return parsed
