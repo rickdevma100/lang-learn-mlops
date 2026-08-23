@@ -249,7 +249,7 @@ async def generate_lesen_teil1(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         prompt_with_theme = f"{template}\n\nTopic: {selected_theme}"
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
-            timeout=120.0
+            timeout=240.0
         )
         logger.info("Lesen Teil 1 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
@@ -308,7 +308,7 @@ async def generate_lesen_teil2(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         prompt_with_theme = f"{template}\n\nVenue: {selected_theme}"
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
-            timeout=120.0
+            timeout=240.0
         )
         logger.info("Lesen Teil 2 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
@@ -367,7 +367,7 @@ async def generate_lesen_teil3(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         prompt_with_theme = f"{template}\n\nContext: {selected_theme}"
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate_exam, prompt_with_theme, max_tokens=1024, temperature=0.75),
-            timeout=120.0
+            timeout=240.0
         )
         logger.info("Lesen Teil 3 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
@@ -427,7 +427,7 @@ async def generate_lesen_teil4(level: str = "A2") -> Tuple[Dict[str, Any], Dict[
         template = load_prompt("exam_lesen_teil4.txt")
         raw = await asyncio.wait_for(
             asyncio.to_thread(generate_exam, template, max_tokens=1200, temperature=0.75),
-            timeout=120.0
+            timeout=240.0
         )
         logger.info("Lesen Teil 4 raw output: %d chars", len(raw))
         parsed = _extract_json(raw)
