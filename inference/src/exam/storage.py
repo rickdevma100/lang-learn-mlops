@@ -7,7 +7,10 @@ import json
 import logging
 import time
 from typing import Any, Dict, List, Optional
-import redis
+try:
+    import redis
+except ImportError:
+    redis = None
 
 from ..config import REDIS_HOST, REDIS_PORT
 

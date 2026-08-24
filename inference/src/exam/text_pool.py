@@ -12,7 +12,10 @@ import random
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import redis
+try:
+    import redis
+except ImportError:
+    redis = None
 
 from ..config import REDIS_HOST, REDIS_PORT
 
@@ -25,59 +28,97 @@ _ANTI_REPEAT_SIZE = 15  # Track last 15 served indices
 
 
 class TextPool:
-    """Manages certified Goethe A2 texts in Redis with anti-repeat tracking."""
+    """Manages certified Goethe A2 texts in Redis with anti-repeat tracking and in-memory fallback."""
 
-    def __init__(self, redis_client: Optional[redis.Redis] = None) -> None:
-        self._redis = redis_client or redis.Redis(
-            host=REDIS_HOST, port=REDIS_PORT, decode_responses=True
-        )
+    def __init__(self, redis_client: Optional[Any] = None) -> None:
+        self._redis = None
+        self._memory_pool: Dict[str, List[Dict[str, Any]]] = {}
+        self._memory_recent: Dict[str, List[int]] = collections.defaultdict(list)
+
+        # Load seed data for in-memory fallback
+        seed_file = Path(__file__).parent / "seed_texts.json"
+        if seed_file.is_file():
+            try:
+                with open(seed_file, encoding="utf-8") as f:
+                    self._memory_pool = json.load(f)
+            except Exception as e:
+                logger.warning("Failed to load seed_texts.json: %s", e)
+
+        if redis_client is not None:
+            self._redis = redis_client
+        elif redis is not None:
+            try:
+                client = redis.Redis(
+                    host=REDIS_HOST, port=REDIS_PORT, decode_responses=True, socket_connect_timeout=2.0
+                )
+                client.ping()
+                self._redis = client
+                logger.info("TextPool connected to Redis at %s:%d", REDIS_HOST, REDIS_PORT)
+            except Exception as e:
+                logger.warning("TextPool running in in-memory fallback mode (Redis unavailable): %s", e)
 
     # ------------------------------------------------------------------
     # Core API
     # ------------------------------------------------------------------
 
     def get_random_text(self, teil: str) -> Dict[str, Any]:
-        """Pick a random text from the pool, avoiding recent repeats.
-        
-        Args:
-            teil: One of 'lesen_teil1', 'lesen_teil2', 'lesen_teil3', 'lesen_teil4'
-        
-        Returns:
-            A dict with the text data (title, text, etc.)
-        
-        Raises:
-            ValueError: If no texts are available for the given teil.
-        """
-        key = _POOL_KEY.format(teil=teil)
-        raw = self._redis.get(key)
-        if not raw:
-            raise ValueError(f"No texts in pool for '{teil}'. Run seed_pool() first.")
+        """Pick a random text from the pool, avoiding recent repeats."""
+        texts: List[Dict[str, Any]] = []
 
-        texts = json.loads(raw)
+        if self._redis is not None:
+            try:
+                key = _POOL_KEY.format(teil=teil)
+                raw = self._redis.get(key)
+                if not raw:
+                    self.seed_pool()
+                    raw = self._redis.get(key)
+                if raw:
+                    texts = json.loads(raw)
+            except Exception as e:
+                logger.warning("Redis read error in TextPool, using in-memory: %s", e)
+
         if not texts:
-            raise ValueError(f"Empty pool for '{teil}'.")
+            texts = self._memory_pool.get(teil, [])
+
+        if not texts:
+            raise ValueError(f"No texts in pool for '{teil}'.")
 
         pool_size = len(texts)
-        recent_key = _RECENT_KEY.format(teil=teil)
 
-        # Get recently served indices
-        recent_raw = self._redis.lrange(recent_key, 0, -1)
-        recent_indices = set(int(x) for x in recent_raw if x.isdigit())
+        if self._redis is not None:
+            try:
+                recent_key = _RECENT_KEY.format(teil=teil)
+                recent_raw = self._redis.lrange(recent_key, 0, -1)
+                recent_indices = set(int(x) for x in recent_raw if str(x).isdigit())
 
-        # Find available indices (not recently served)
+                available = [i for i in range(pool_size) if i not in recent_indices]
+                if not available:
+                    self._redis.delete(recent_key)
+                    available = list(range(pool_size))
+
+                choice_idx = random.choice(available)
+                self._redis.rpush(recent_key, str(choice_idx))
+                self._redis.ltrim(recent_key, -_ANTI_REPEAT_SIZE, -1)
+
+                text_data = dict(texts[choice_idx])
+                text_data["_pool_index"] = choice_idx
+                return text_data
+            except Exception as e:
+                logger.warning("Redis tracking error, using in-memory: %s", e)
+
+        # In-memory selection with anti-repeat
+        recent_indices = set(self._memory_recent[teil])
         available = [i for i in range(pool_size) if i not in recent_indices]
         if not available:
-            # All exhausted → clear history and pick from all
-            self._redis.delete(recent_key)
+            self._memory_recent[teil].clear()
             available = list(range(pool_size))
 
         choice_idx = random.choice(available)
+        self._memory_recent[teil].append(choice_idx)
+        if len(self._memory_recent[teil]) > _ANTI_REPEAT_SIZE:
+            self._memory_recent[teil].pop(0)
 
-        # Track this choice
-        self._redis.rpush(recent_key, str(choice_idx))
-        self._redis.ltrim(recent_key, -_ANTI_REPEAT_SIZE, -1)
-
-        text_data = texts[choice_idx]
+        text_data = dict(texts[choice_idx])
         text_data["_pool_index"] = choice_idx
         return text_data
 
@@ -150,6 +191,10 @@ class TextPool:
 
         with open(seed_file, encoding="utf-8") as f:
             seed_data = json.load(f)
+
+        if self._redis is None:
+            self._memory_pool = seed_data
+            return {teil: len(texts) for teil, texts in seed_data.items()}
 
         result = {}
         for teil, texts in seed_data.items():

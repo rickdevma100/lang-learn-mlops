@@ -10,7 +10,10 @@ import os
 import sys
 from pathlib import Path
 
-import yaml as _yaml
+try:
+    import yaml as _yaml
+except ImportError:
+    _yaml = None
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -19,7 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # ---------------------------------------------------------------------------
 _PARAMS: dict = {}
 _params_file = REPO_ROOT / "params.yaml"
-if _params_file.is_file():
+if _yaml is not None and _params_file.is_file():
     with open(_params_file, encoding="utf-8") as _f:
         _PARAMS = _yaml.safe_load(_f) or {}
 
@@ -74,8 +77,12 @@ REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
 
 # External LLM server (Mac-native llama-server with Metal acceleration)
-# Used ONLY for exam question generation and evaluation
+# Used for exam generation/evaluation, word explainer, and dialogue generation
 EXTERNAL_LLM_URL: str = os.getenv("EXTERNAL_LLM_URL", "http://192.168.2.1:9090")
+
+# Backend selections: "external" (Mac llama-server) or "cluster" (in-cluster llamacpp)
+EXPLAIN_WORD_BACKEND: str = os.getenv("EXPLAIN_WORD_BACKEND", "external")
+DIALOGUE_BACKEND: str = os.getenv("DIALOGUE_BACKEND", "external")
 
 def _default_embedding_model_path() -> str:
     local_path = REPO_ROOT / "models" / "multilingual-e5-small"

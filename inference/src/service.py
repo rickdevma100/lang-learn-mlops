@@ -29,10 +29,11 @@ from bentoml.validators import ContentType
 # pyrefly: ignore [missing-import]
 from prometheus_client import make_asgi_app
 
-from .config import MAX_TOKENS, REPO_ROOT, TEMPERATURE
+from .config import DIALOGUE_BACKEND, EXPLAIN_WORD_BACKEND, MAX_TOKENS, REPO_ROOT, TEMPERATURE
 from .metrics import MODEL_LOADED, USER_FEEDBACK, record_inference, record_cache_lookup
 from .prompts import load_prompt
 from .runner import generate, generate_stream, warmup
+from .backends.external_llama_backend import generate_external, generate_external_stream
 from .cache import SemanticCache
 from .tts import synthesize_line_sync
 from .exam import ExamOrchestrator
@@ -128,22 +129,17 @@ class LangLearnService:
         level: str = "A2",
         bypass_cache: bool = False,
         prompt_template: str = "",
+        backend: str = "auto",
     ) -> dict:
         """Generate an A1/A2 German dialogue for the given scenario.
 
-        Extra parameters `language` and `level` are used for metric labels
-        and CEFR scoring. They default to German/A2.
-
-        Set `bypass_cache=True` to skip the semantic cache (used by the
-        prompt optimizer during benchmarking so each candidate gets a
-        fresh LLM-generated response).
-
-        Set `prompt_template` to override the default prompt loaded from
-        disk. The template must contain a `{scenario}` placeholder.
-        Used by the prompt optimizer to benchmark candidate prompt
-        variations without modifying the ConfigMap.
+        Supports both external Mac Metal llama-server and in-cluster model.
         """
         t0 = time.time()
+        use_external = (
+            backend.lower() == "external"
+            or (backend.lower() == "auto" and DIALOGUE_BACKEND.lower() == "external")
+        )
         try:
             # 1. Semantic Cache Lookup (skipped when bypass_cache is True)
             if not bypass_cache:
@@ -184,7 +180,16 @@ class LangLearnService:
             else:
                 template = load_prompt("scenario_dialogue.txt")
             prompt = template.format(scenario=scenario)
-            text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
+
+            text = None
+            if use_external:
+                try:
+                    text = generate_external(prompt, max_tokens=max_tokens, temperature=temperature)
+                except Exception as e_ext:
+                    logger.warning("External LLM failed for scenario_dialogue, falling back to cluster: %s", e_ext)
+
+            if text is None:
+                text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
 
             latency = time.time() - t0
             token_count = len(text.split())
@@ -245,8 +250,9 @@ class LangLearnService:
         level: str = "A2",
         bypass_cache: bool = False,
         prompt_template: str = "",
+        backend: str = "auto",
     ) -> Generator[str, None, None]:
-        """SSE streaming variant of scenario_dialogue.
+        """SSE streaming variant of scenario_dialogue with dual-backend support.
 
         Streams dialogue turns as Server-Sent Events as they are parsed
         from the LLM's token stream. Each turn appears on the frontend
@@ -258,6 +264,10 @@ class LangLearnService:
           - {"type": "error", "error": ..., ...}           — error
         """
         t0 = time.time()
+        use_external = (
+            backend.lower() == "external"
+            or (backend.lower() == "auto" and DIALOGUE_BACKEND.lower() == "external")
+        )
         try:
             # 1. Semantic Cache Lookup
             if not bypass_cache:
@@ -307,9 +317,27 @@ class LangLearnService:
             prompt = template.format(scenario=scenario)
 
             # 3. Stream tokens and parse dialogue turns progressively
-            if generate_stream is None:
-                # Fallback for backends that don't support streaming (e.g. MLX)
-                text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
+            stream_iter = None
+            if use_external:
+                try:
+                    stream_iter = generate_external_stream(prompt, max_tokens=max_tokens, temperature=temperature)
+                except Exception as e_ext:
+                    logger.warning("External LLM stream failed for scenario_dialogue, falling back to cluster: %s", e_ext)
+
+            if stream_iter is None:
+                if generate_stream is not None:
+                    stream_iter = generate_stream(prompt, max_tokens=max_tokens, temperature=temperature)
+
+            if stream_iter is None:
+                # Fallback for non-streaming execution
+                text = None
+                if use_external:
+                    try:
+                        text = generate_external(prompt, max_tokens=max_tokens, temperature=temperature)
+                    except Exception:
+                        pass
+                if text is None:
+                    text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
                 latency = time.time() - t0
                 token_count = len(text.split())
 
@@ -345,7 +373,7 @@ class LangLearnService:
             accumulated_text = ""
             sent_turn_count = 0
 
-            for token in generate_stream(prompt, max_tokens=max_tokens, temperature=temperature):
+            for token in stream_iter:
                 accumulated_text += token
 
                 # Try to parse dialogue turns from what we have so far
@@ -462,17 +490,31 @@ class LangLearnService:
         word: str,
         max_tokens: int = 256,
         temperature: float = 0.0,
+        backend: str = "auto",
     ) -> Generator[str, None, None]:
-        """SSE streaming variant of explain_word."""
+        """SSE streaming variant of explain_word with support for external Mac LLM and in-cluster LLM."""
         t0 = time.time()
+        use_external = (
+            backend.lower() == "external"
+            or (backend.lower() == "auto" and EXPLAIN_WORD_BACKEND.lower() == "external")
+        )
         try:
             template = load_prompt("explain_word.txt")
             prompt = template.format(word=word)
 
-            if generate_stream is None:
-                raise RuntimeError("Streaming backend is not supported or not loaded")
+            token_stream = None
+            if use_external:
+                try:
+                    token_stream = generate_external_stream(prompt, max_tokens=max_tokens, temperature=temperature)
+                except Exception as e_ext:
+                    logger.warning("External LLM stream failed for explain_word, falling back to cluster: %s", e_ext)
 
-            for token in generate_stream(prompt, max_tokens=max_tokens, temperature=temperature):
+            if token_stream is None:
+                if generate_stream is None:
+                    raise RuntimeError("In-cluster streaming backend is not supported or not loaded")
+                token_stream = generate_stream(prompt, max_tokens=max_tokens, temperature=temperature)
+
+            for token in token_stream:
                 event = json.dumps({
                     "type": "token",
                     "text": token
@@ -500,13 +542,33 @@ class LangLearnService:
         word: str,
         max_tokens: int = 256,
         temperature: float = 0.0,
+        backend: str = "auto",
     ) -> dict:
-        """Explain a German word, providing part of speech, meaning, examples, and synonyms."""
+        """Explain a German word, providing part of speech, meaning, examples, and synonyms.
+
+        Supports both external Mac Metal llama-server and in-cluster model.
+        """
         t0 = time.time()
+        use_external = (
+            backend.lower() == "external"
+            or (backend.lower() == "auto" and EXPLAIN_WORD_BACKEND.lower() == "external")
+        )
         try:
             template = load_prompt("explain_word.txt")
             prompt = template.format(word=word)
-            text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
+
+            text = None
+            used_backend = "cluster"
+            if use_external:
+                try:
+                    text = generate_external(prompt, max_tokens=max_tokens, temperature=temperature)
+                    used_backend = "external"
+                except Exception as e_ext:
+                    logger.warning("External LLM failed for explain_word, falling back to cluster: %s", e_ext)
+
+            if text is None:
+                text = generate(prompt, max_tokens=max_tokens, temperature=temperature)
+                used_backend = "cluster"
 
             latency = time.time() - t0
             token_count = len(text.split())
