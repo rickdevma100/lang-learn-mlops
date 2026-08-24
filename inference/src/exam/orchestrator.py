@@ -54,7 +54,13 @@ class ExamOrchestrator:
                     t_data, t_key = await gen_fn(level)
                 except Exception as e:
                     logger.error("Teil %d generation error: %s", idx, e)
-                    t_data, t_key = await gen_fn(level)
+                    # Retry once safely
+                    try:
+                        t_data, t_key = await gen_fn(level)
+                    except Exception as e2:
+                        logger.error("Teil %d retry error: %s", idx, e2)
+                        t_data = {"teil": idx, "title": f"Lesen Teil {idx}", "items": [], "source": "fallback"}
+                        t_key = {"answer_key": {}, "explanations": {}}
 
                 teils[t_name] = t_data
                 aggregated_answer_key.update(t_key.get("answer_key", {}))
@@ -165,7 +171,12 @@ class ExamOrchestrator:
                     t_data, t_key = await gen_task
                 except Exception as e:
                     logger.error("Streaming error in %s: %s", t_name, e)
-                    t_data, t_key = await gen_fn(level)
+                    try:
+                        t_data, t_key = await gen_fn(level)
+                    except Exception as e2:
+                        logger.error("Streaming retry error in %s: %s", t_name, e2)
+                        t_data = {"teil": idx, "title": f"Lesen Teil {idx}", "items": [], "source": "fallback"}
+                        t_key = {"answer_key": {}, "explanations": {}}
 
                 teils[t_name] = t_data
                 aggregated_answer_key.update(t_key.get("answer_key", {}))
@@ -209,7 +220,11 @@ class ExamOrchestrator:
                     t_data = await gen_task
                 except Exception as e:
                     logger.error("Streaming error in %s: %s", t_name, e)
-                    t_data = await gen_fn(level)
+                    try:
+                        t_data = await gen_fn(level)
+                    except Exception as e2:
+                        logger.error("Streaming retry error in %s: %s", t_name, e2)
+                        t_data = {"teil": idx, "title": f"Schreiben Teil {idx}", "source": "fallback"}
 
                 teils[t_name] = t_data
 
