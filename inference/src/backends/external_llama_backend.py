@@ -15,7 +15,12 @@ from typing import Iterable
 
 import httpx
 
-from ..config import EXTERNAL_LLM_URL
+import os
+
+try:
+    from ..config import EXTERNAL_LLM_URL
+except (ImportError, AttributeError):
+    EXTERNAL_LLM_URL = os.getenv("EXTERNAL_LLM_URL", "http://192.168.2.1:9090")
 
 logger = logging.getLogger("lang_learn.backends.external_llama")
 

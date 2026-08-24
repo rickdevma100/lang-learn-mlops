@@ -73,6 +73,10 @@ BACKEND: str = _resolve_backend()
 REDIS_HOST: str = os.getenv("REDIS_HOST", "localhost")
 REDIS_PORT: int = int(os.getenv("REDIS_PORT", "6379"))
 
+# External LLM server (Mac-native llama-server with Metal acceleration)
+# Used ONLY for exam question generation and evaluation
+EXTERNAL_LLM_URL: str = os.getenv("EXTERNAL_LLM_URL", "http://192.168.2.1:9090")
+
 def _default_embedding_model_path() -> str:
     local_path = REPO_ROOT / "models" / "multilingual-e5-small"
     container_path = Path("/app/models/multilingual-e5-small")
