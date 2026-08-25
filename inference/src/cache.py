@@ -7,7 +7,10 @@ import uuid
 # pyrefly: ignore [missing-import]
 import numpy as np
 # pyrefly: ignore [missing-import]
-import redis
+try:
+    import redis
+except ImportError:
+    redis = None
 
 from .config import EMBEDDING_MODEL_PATH, REDIS_HOST, REDIS_PORT
 
