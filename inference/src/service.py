@@ -1054,8 +1054,8 @@ class LangLearnService:
     def exam_saved_papers(
         self,
         module: str = "",
-        status: str = "pending",
-        limit: int = 20,
+        status: str = "all",
+        limit: int = 50,
     ) -> dict:
         """List saved Goethe A2 exam question papers stored in Redis."""
         try:

@@ -307,8 +307,8 @@ class ExamOrchestrator:
     def list_saved_papers(
         self,
         module: Optional[str] = None,
-        status: Optional[str] = "pending",
-        limit: int = 20,
+        status: Optional[str] = "all",
+        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """Retrieve saved exam question papers available in Redis."""
         return self.storage.list_papers(module=module, status=status, limit=limit)

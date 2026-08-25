@@ -75,8 +75,8 @@ class ExamStorage:
         except Exception as e:
             logger.warning("ExamStorage running in in-memory fallback mode (Redis unavailable): %s", e)
 
-    def store_paper(self, paper_id: str, paper_dict: Dict[str, Any], ttl: int = 604800) -> str:
-        """Store exam paper with answer key in Redis (7 days TTL).
+    def store_paper(self, paper_id: str, paper_dict: Dict[str, Any], ttl: int = 1209600) -> str:
+        """Store exam paper with answer key in Redis (14 days TTL = 1,209,600s).
 
         Guarantees deduplication: if a paper with identical content was already stored,
         it skips creating a duplicate entry and reuses the existing paper.
@@ -140,7 +140,7 @@ class ExamStorage:
 
         if self.redis_client is not None:
             try:
-                # 1. Store full paper content with answers
+                # 1. Store full paper content with answers (14 days TTL)
                 self.redis_client.setex(key, ttl, serialized)
                 # 2. Store alias key for direct human-readable lookup
                 self.redis_client.setex(alias_key, ttl, paper_id)
@@ -151,7 +151,7 @@ class ExamStorage:
                 self.redis_client.expire(meta_key, ttl)
                 # 5. Add to sorted index
                 self.redis_client.zadd("exam:papers:index", {paper_id: now_ts})
-                logger.info("Stored unique exam paper in Redis under key: %s (label: %s, fp: %s)", key, label, fp)
+                logger.info("Stored unique exam paper in Redis under key: %s (label: %s, fp: %s, ttl: %ds)", key, label, fp, ttl)
             except Exception as e:
                 logger.error("Failed to store paper in Redis: %s", e)
 
@@ -161,9 +161,8 @@ class ExamStorage:
         return label
 
     def get_paper(self, paper_id: str) -> Optional[Dict[str, Any]]:
-        """Retrieve exam paper (including answer key) by ID or label alias."""
+        """Retrieve full exam paper from Redis (accepts UUID or human-readable label)."""
         lookup_id = paper_id
-
         if self.redis_client is not None:
             try:
                 # Check if paper_id is a label alias (e.g. 'lesen_paper_1' or 'Lesen Paper 1')
@@ -189,12 +188,13 @@ class ExamStorage:
     def list_papers(
         self,
         module: Optional[str] = None,
-        status: Optional[str] = "pending",
-        limit: int = 20,
+        status: Optional[str] = None,
+        limit: int = 50,
     ) -> List[Dict[str, Any]]:
         """Retrieve saved exam question papers from Redis."""
         papers: List[Dict[str, Any]] = []
         mod_filter = module.strip().lower() if module else None
+        filter_status = status.strip().lower() if (status and status.strip().lower() not in ("all", "*", "", "none")) else None
 
         if self.redis_client is not None:
             try:
@@ -209,7 +209,7 @@ class ExamStorage:
 
                     if mod_filter and meta.get("module") != mod_filter:
                         continue
-                    if status and meta.get("status") != status:
+                    if filter_status and meta.get("status") != filter_status:
                         continue
 
                     papers.append({
@@ -236,7 +236,7 @@ class ExamStorage:
         ):
             if mod_filter and meta.get("module") != mod_filter:
                 continue
-            if status and meta.get("status") != status:
+            if filter_status and meta.get("status") != filter_status:
                 continue
             papers.append({
                 "paper_id": meta.get("paper_id", pid),
