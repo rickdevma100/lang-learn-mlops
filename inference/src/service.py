@@ -1133,22 +1133,31 @@ class LangLearnService:
             from .exam.text_pool import TextPool
             pool = TextPool()
             texts = pool.list_texts(teil)
-            # Return summaries (not full text to keep response small)
             summaries = []
             for i, t in enumerate(texts):
                 summary = {
                     "index": i,
                     "title": t.get("title", t.get("sender", f"Text {i+1}")),
+                    "full_data": t,
                 }
                 if "text" in t:
+                    summary["text"] = t["text"]
                     summary["word_count"] = len(t["text"].split())
                     summary["preview"] = t["text"][:150] + "..." if len(t["text"]) > 150 else t["text"]
                 elif "directory" in t:
                     summary["floors"] = len(t["directory"])
-                    summary["preview"] = f"Kaufhaus with {len(t['directory'])} floors"
+                    summary["directory"] = t["directory"]
+                    summary["preview"] = f"Kaufhaus directory with {len(t['directory'])} floors"
                 elif "ads" in t:
                     summary["ad_count"] = len(t["ads"])
+                    summary["ads"] = t["ads"]
                     summary["preview"] = ", ".join(a.get("title", "") for a in t["ads"][:3]) + "..."
+                if "sender" in t:
+                    summary["sender"] = t["sender"]
+                if "recipient" in t:
+                    summary["recipient"] = t["recipient"]
+                if "subject" in t:
+                    summary["subject"] = t["subject"]
                 summaries.append(summary)
             return {"success": True, "teil": teil, "count": len(texts), "texts": summaries}
         except Exception as e:
