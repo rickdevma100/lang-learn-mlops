@@ -17,3 +17,11 @@ llama-down:
 llama-status:
 	@echo "Checking llama-server on http://localhost:9090/health..."
 	@curl -s http://localhost:9090/health || echo "NOT RUNNING"
+
+argocd-ui:
+	@echo "Opening ArgoCD port-forward on https://localhost:8080..."
+	@kubectl port-forward svc/argocd-server -n argocd 8080:443 --address 0.0.0.0
+
+argocd-pass:
+	@echo -n "ArgoCD admin password: "
+	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo ""
