@@ -25,3 +25,7 @@ argocd-ui:
 argocd-pass:
 	@echo -n "ArgoCD admin password: "
 	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo ""
+
+ngrok-up:
+	@echo "Starting ngrok tunnel for embellish-poet-unwashed.ngrok-free.dev..."
+	@ngrok http 192.168.2.3:80 --host-header=langlearn.local --url=embellish-poet-unwashed.ngrok-free.dev
