@@ -37,8 +37,8 @@ COPY src/ src/
 COPY prompts/ prompts/
 
 # Default env — can be overridden by KServe InferenceService env vars
-ENV LANG_LEARN_MODEL_PATH=/app/models/gemma.gguf
-ENV BACKEND=llamacpp
+ENV LANG_LEARN_MODEL_PATH=""
+ENV BACKEND=external
 
 EXPOSE 3000
 

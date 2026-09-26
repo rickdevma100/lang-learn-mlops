@@ -32,11 +32,17 @@ def _default_model_path() -> str:
 
     For GGUF models (llamacpp backend), auto-resolve the .gguf file inside
     the directory so llama-cpp-python gets a file path, not a directory.
+    Returns empty string for the 'external' backend (no local model needed).
     """
+    backend = _resolve_backend()
+
+    # External backend delegates to Mac-native llama-server — no local model
+    if backend == "external":
+        return ""
+
     model_dir = str(
         REPO_ROOT / _PARAMS.get("model", {}).get("path", "models/gemma-q4")
     )
-    backend = _resolve_backend()
 
     # llamacpp needs a direct .gguf file path, not a directory
     if backend == "llamacpp" and Path(model_dir).is_dir():
@@ -70,6 +76,7 @@ PROMPTS_DIR: Path = Path(__file__).resolve().parent.parent / "prompts"
 # Backend selection:
 #   "mlx"      — Apple Silicon (Mac), uses mlx + mlx-vlm
 #   "llamacpp" — Linux / KServe containers, uses llama-cpp-python (GGUF)
+#   "external" — Mac-native llama-server via HTTP (no local model loaded)
 BACKEND: str = _resolve_backend()
 
 # Redis Configuration
