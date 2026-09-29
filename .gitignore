@@ -236,3 +236,7 @@ models/gemma-mlx/README.md
 models/gemma-mlx/tokenizer_config.json
 models/gemma-mlx/tokenizer.json
 models/.DS_Store
+.DS_Store
+**/.DS_Store
+.DS_Store
+**/.DS_Store
