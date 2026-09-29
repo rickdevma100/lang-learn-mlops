@@ -1,4 +1,7 @@
-.PHONY: llama-up llama-down llama-status
+.PHONY: llama-up llama-down llama-status argocd-ui argocd-pass ngrok-up ngrok-down
+
+KUBECTL ?= /usr/local/bin/kubectl
+NGROK ?= /usr/local/bin/ngrok
 
 llama-up:
 	@cp /Users/rickdevmajumder/Downloads/Lang-learn-project/com.langlearn.llama-server.plist ~/Library/LaunchAgents/com.langlearn.llama-server.plist 2>/dev/null || true
@@ -20,12 +23,17 @@ llama-status:
 
 argocd-ui:
 	@echo "Opening ArgoCD port-forward on https://localhost:8080..."
-	@kubectl port-forward svc/argocd-server -n argocd 8080:443 --address 0.0.0.0
+	@$(KUBECTL) port-forward svc/argocd-server -n argocd 8080:443 --address 0.0.0.0
 
 argocd-pass:
-	@echo -n "ArgoCD admin password: "
-	@kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo ""
+	@printf "ArgoCD admin password: "
+	@$(KUBECTL) -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d && echo ""
 
 ngrok-up:
+	@pkill -f "ngrok http" 2>/dev/null || true
 	@echo "Starting ngrok tunnel for embellish-poet-unwashed.ngrok-free.dev..."
-	@ngrok http 192.168.2.3:80 --host-header=langlearn.local --url=embellish-poet-unwashed.ngrok-free.dev
+	@$(NGROK) http 192.168.2.4:80 --host-header=langlearn.local --url=embellish-poet-unwashed.ngrok-free.dev
+
+ngrok-down:
+	@pkill -f "ngrok http" 2>/dev/null || true
+	@echo "ngrok tunnel stopped"
